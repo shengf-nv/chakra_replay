@@ -187,7 +187,9 @@ class BaseBackend(ABC):
         """no-op for the case we want to skip comms/compute"""
 
     @abstractmethod
-    def sayHello(self, global_rank: int, local_rank: int, world_size: int, master_ip: str) -> None:
+    def sayHello(
+        self, global_rank: int, local_rank: int, world_size: int, master_ip: str
+    ) -> None:
         """Print startup information of the backend."""
 
     # Collectives, if you would like more detailed documentation about the behavior of these collectives,
@@ -244,11 +246,15 @@ class BaseBackend(ABC):
         """Allocate tensor of random values according to parameters."""
 
     @abstractmethod
-    def alloc_embedding_tables(self, n: int, m: int, curRankDevice: str, dtype: torch.dtype):
+    def alloc_embedding_tables(
+        self, n: int, m: int, curRankDevice: str, dtype: torch.dtype
+    ):
         """Allocate embedding table based on parameters."""
 
     @abstractmethod
-    def alloc_empty(self, sizeArr: list[int], dtype: torch.dtype, curRankDevice: str) -> torch.Tensor:
+    def alloc_empty(
+        self, sizeArr: list[int], dtype: torch.dtype, curRankDevice: str
+    ) -> torch.Tensor:
         """Allocate tensor with uninitialized data based on parameters."""
 
     @abstractmethod
@@ -290,7 +296,9 @@ class BaseBackend(ABC):
 
     # Init functions
     @abstractmethod
-    def initialize_backend(self, master_ip: str, master_port: str, backend: str = "gloo") -> None:
+    def initialize_backend(
+        self, master_ip: str, master_port: str, backend: str = "gloo"
+    ) -> None:
         pass
 
     @abstractmethod

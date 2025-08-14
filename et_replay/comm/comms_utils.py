@@ -35,7 +35,10 @@ from typing import Any
 
 
 try:
-    from et_replay.vendor_internal.fb_internal import initialize_collectiveArgs_internal, remove_quantization_handlers
+    from et_replay.vendor_internal.fb_internal import (
+        initialize_collectiveArgs_internal,
+        remove_quantization_handlers,
+    )
 
     has_internal_libs = True
 except ImportError:
@@ -136,10 +139,17 @@ def fixBeginSize(commsParams: commsParamsHolder, world_size: int) -> None:
 
         if (
             commsParams.bitwidth < 32
-            and (commsParams.beginSize / commsParams.element_size / world_size) < commsParams.quant_a2a_embedding_dim
+            and (commsParams.beginSize / commsParams.element_size / world_size)
+            < commsParams.quant_a2a_embedding_dim
         ):
-            commsParams.beginSize = commsParams.quant_a2a_embedding_dim * world_size * commsParams.element_size
-    elif (commsParams.collective == "all_reduce") or (commsParams.collective == "reduce"):
+            commsParams.beginSize = (
+                commsParams.quant_a2a_embedding_dim
+                * world_size
+                * commsParams.element_size
+            )
+    elif (commsParams.collective == "all_reduce") or (
+        commsParams.collective == "reduce"
+    ):
         if commsParams.beginSize < commsParams.element_size:
             commsParams.beginSize = commsParams.element_size
 
@@ -261,7 +271,9 @@ def commonUrlRead(remotePath: str) -> StringIO:
     return StringIO(contents.decode("utf-8"))
 
 
-def initQuantCommCtx(collectiveArgs: collectiveArgsHolder, commsParams: commsParamsHolderBase) -> None:
+def initQuantCommCtx(
+    collectiveArgs: collectiveArgsHolder, commsParams: commsParamsHolderBase
+) -> None:
     """
     Initialize quantization handlers.
 
@@ -306,7 +318,9 @@ def checkQuantArgs(
         "reduce",
         "all_reduce",
     ):
-        raise NotImplementedError(f"quantized communication for {collective} is currently unsupported.")
+        raise NotImplementedError(
+            f"quantized communication for {collective} is currently unsupported."
+        )
     if collective in ("all_to_all", "all_to_allv"):
         if (beginSize // 4) % quant_a2a_embedding_dim != 0:
             logger.warning(
@@ -317,7 +331,9 @@ def checkQuantArgs(
         if not blockingFlag:
             raise NotImplementedError("quantized All_to_all must be synchronous.")
     if dtype != torch.float32:
-        raise NotImplementedError(f"quantization for {dtype} is not supported. Use float32 instead.")
+        raise NotImplementedError(
+            f"quantization for {dtype} is not supported. Use float32 instead."
+        )
 
 
 def clearQuantCommCtx(collectiveArgs: collectiveArgsHolder) -> None:
@@ -468,7 +484,9 @@ class commsArgs:
         self.embDim = kwargs["embDim"] if "embDim" in kwargs else None
         self.numEmbs = kwargs["numEmbs"] if "numEmbs" in kwargs else None
         self.numEmbTables = kwargs["numEmbTables"] if "numEmbTable" in kwargs else None
-        self.numEmbTablesBatched = kwargs["numEmbTablesBatched"] if "numEmbTablesBatched" in kwargs else None
+        self.numEmbTablesBatched = (
+            kwargs["numEmbTablesBatched"] if "numEmbTablesBatched" in kwargs else None
+        )
         self.bagSize = kwargs["bagSize"] if "bagSize" in kwargs else None
 
     def toDict(self) -> dict:
@@ -751,7 +769,10 @@ class paramCommsBench(ABC):
             "signed char": torch.int8,
             "unsigned char": torch.uint8,
         }
-        self.dtypeSizeMap = {k: torch.tensor([], dtype=v).element_size() for k, v in self.dtypeMap.items()}
+        self.dtypeSizeMap = {
+            k: torch.tensor([], dtype=v).element_size()
+            for k, v in self.dtypeMap.items()
+        }
         self.supportedDtype = list(self.dtypeMap.keys())
         self.backendFuncs: BaseBackend
 
@@ -765,7 +786,9 @@ class paramCommsBench(ABC):
     def isCudaAvail(self) -> bool:
         return torch.cuda.is_available()
 
-    def dcheck(self, commsParams: commsParamsHolderBase, curSize: int, tensor: torch.Tensor) -> None:
+    def dcheck(
+        self, commsParams: commsParamsHolderBase, curSize: int, tensor: torch.Tensor
+    ) -> None:
         """ "
         Data validation check for collectives, will raise an exception if invalid.
 
@@ -784,17 +807,23 @@ class paramCommsBench(ABC):
                 "reduce_scatter",
                 "reduce_scatter_base",
             )
-        ) or (self.backendFuncs.get_global_rank() == commsParams.srcOrDst and commsParams.collective == "reduce"):
+        ) or (
+            self.backendFuncs.get_global_rank() == commsParams.srcOrDst
+            and commsParams.collective == "reduce"
+        ):
             # NOTE: for sum op. and the initial value is "self.initVal", for boolean type, self.initVal is always True
             expectedResult = (
-                self.initVal if tensor.dtype == torch.bool else self.collectiveArgs.world_size * self.initVal
+                self.initVal
+                if tensor.dtype == torch.bool
+                else self.collectiveArgs.world_size * self.initVal
             )
 
         if (
             commsParams.collective in ("reduce", "gather")
             and self.backendFuncs.get_global_rank() != commsParams.srcOrDst
         ) or (
-            commsParams.collective in ("pt2pt",) and self.backendFuncs.get_global_rank() not in commsParams.dst_ranks
+            commsParams.collective in ("pt2pt",)
+            and self.backendFuncs.get_global_rank() not in commsParams.dst_ranks
         ):
             return
 
@@ -839,7 +868,11 @@ class paramCommsBench(ABC):
             newVal = self.initVal
         elif self.collectiveArgs.collective in ("broadcast",):
             # root process uses initVal and others use random values
-            newVal = self.initVal if (self.backendFuncs.get_global_rank() == self.collectiveArgs.srcOrDst) else newVal
+            newVal = (
+                self.initVal
+                if (self.backendFuncs.get_global_rank() == self.collectiveArgs.srcOrDst)
+                else newVal
+            )
 
         # reset the tensor(s)
         if isinstance(tensor, list):
@@ -870,17 +903,24 @@ class paramCommsBench(ABC):
         if allocate:
             # all_to_allv requires two tensors
             # ipTensor has been allocated outside of this function, just pass in
-            opTensor = self.backendFuncs.alloc_random([numElementsOut], curDevice, dtype, scaleFactor)
+            opTensor = self.backendFuncs.alloc_random(
+                [numElementsOut], curDevice, dtype, scaleFactor
+            )
         # recorded splits in trace is only for dim 0, but tensor in replay has been flattened.
         # need to recalculate the splits for flattened 1D tensor
         # corner case: one rank sends zero data out, but receives data from other ranks, and vice versa.
         self.collectiveArgs.opTensor_split = (
-            [numElementsOut // max(sum(curComm.outSplit), 1) * i for i in curComm.outSplit]
+            [
+                numElementsOut // max(sum(curComm.outSplit), 1) * i
+                for i in curComm.outSplit
+            ]
             if curComm.outSplit
             else None
         )
         self.collectiveArgs.ipTensor_split = (
-            [numElementsIn // max(sum(curComm.inSplit), 1) * i for i in curComm.inSplit] if curComm.inSplit else None
+            [numElementsIn // max(sum(curComm.inSplit), 1) * i for i in curComm.inSplit]
+            if curComm.inSplit
+            else None
         )
         return (ipTensor, opTensor)
 
@@ -900,12 +940,22 @@ class paramCommsBench(ABC):
         ipTensor = []
         opTensor = []
         if allocate:
-            i_alloc_func = self.backendFuncs.alloc_ones if commsParams.dcheck == 1 else self.backendFuncs.alloc_random
+            i_alloc_func = (
+                self.backendFuncs.alloc_ones
+                if commsParams.dcheck == 1
+                else self.backendFuncs.alloc_random
+            )
             i_scale_factor = self.initVal if commsParams.dcheck == 1 else scaleFactor
-            ipTensor = [i_alloc_func([i], curDevice, commsParams.dtype, i_scale_factor) for i in curComm.inSplit]
+            ipTensor = [
+                i_alloc_func([i], curDevice, commsParams.dtype, i_scale_factor)
+                for i in curComm.inSplit
+            ]
 
             opTensor = [
-                self.backendFuncs.alloc_random([i], curDevice, commsParams.dtype, scaleFactor) for i in curComm.outSplit
+                self.backendFuncs.alloc_random(
+                    [i], curDevice, commsParams.dtype, scaleFactor
+                )
+                for i in curComm.outSplit
             ]
         return (ipTensor, opTensor)
 
@@ -936,10 +986,16 @@ class paramCommsBench(ABC):
                     scaleFactor=self.initVal,
                 )
             else:
-                ipTensor = self.backendFuncs.alloc_random([numElementsIn], curDevice, dtype, scaleFactor)
+                ipTensor = self.backendFuncs.alloc_random(
+                    [numElementsIn], curDevice, dtype, scaleFactor
+                )
             # allgather requires a tensor list, e.g., List[torch.Tensor]
             for _ in range(world_size):
-                opTensor.append(self.backendFuncs.alloc_random([numElementsIn], curDevice, dtype, scaleFactor))
+                opTensor.append(
+                    self.backendFuncs.alloc_random(
+                        [numElementsIn], curDevice, dtype, scaleFactor
+                    )
+                )
         return (ipTensor, opTensor)
 
     def _prep_all_gather_base(
@@ -968,7 +1024,9 @@ class paramCommsBench(ABC):
                     scaleFactor=self.initVal,
                 )
             else:
-                ipTensor = self.backendFuncs.alloc_random([numElementsIn], curDevice, dtype, scaleFactor)
+                ipTensor = self.backendFuncs.alloc_random(
+                    [numElementsIn], curDevice, dtype, scaleFactor
+                )
             # this is a single all gather with flat output tensor
             opTensor = self.backendFuncs.alloc_random(
                 [numElementsOut],
@@ -1019,7 +1077,9 @@ class paramCommsBench(ABC):
                             scaleFactor,
                         )
                     )
-            opTensor = self.backendFuncs.alloc_random([numElementsOut], curDevice, dtype, scaleFactor)
+            opTensor = self.backendFuncs.alloc_random(
+                [numElementsOut], curDevice, dtype, scaleFactor
+            )
         return (ipTensor, opTensor)
 
     def _prep_reduce_scatter_base(
@@ -1055,7 +1115,9 @@ class paramCommsBench(ABC):
                     commsParams.dtype,
                     scaleFactor,
                 )
-            opTensor = self.backendFuncs.alloc_random([numElementsOut], curDevice, dtype, scaleFactor)
+            opTensor = self.backendFuncs.alloc_random(
+                [numElementsOut], curDevice, dtype, scaleFactor
+            )
         return (ipTensor, opTensor)
 
     def _prep_pt2pt(
@@ -1098,14 +1160,20 @@ class paramCommsBench(ABC):
 
             MMin1 = torch.FloatTensor(in1).to(curDevice)
             MMin2 = torch.FloatTensor(in2).to(curDevice)
-            MMout = self.backendFuncs.alloc_empty([mm0_dim0, mm1_dim1], dtype, curDevice)
+            MMout = self.backendFuncs.alloc_empty(
+                [mm0_dim0, mm1_dim1], dtype, curDevice
+            )
         else:
             mm_size0 = mm0_dim0 * mm0_dim1
             mm_size1 = mm1_dim0 * mm1_dim1
             out_size = mm0_dim0 * mm1_dim1
             MMin1 = gemmTensor[0:mm_size0].view((mm0_dim0, mm0_dim1))
-            MMin2 = gemmTensor[mm_size0 : mm_size0 + mm_size1].view((mm1_dim0, mm1_dim1))
-            MMout = gemmTensor[mm_size0 + mm_size1 : mm_size0 + mm_size1 + out_size].view((mm0_dim0, mm1_dim1))
+            MMin2 = gemmTensor[mm_size0 : mm_size0 + mm_size1].view(
+                (mm1_dim0, mm1_dim1)
+            )
+            MMout = gemmTensor[
+                mm_size0 + mm_size1 : mm_size0 + mm_size1 + out_size
+            ].view((mm0_dim0, mm1_dim1))
 
         return MMout, MMin1, MMin2
 
@@ -1123,7 +1191,9 @@ class paramCommsBench(ABC):
     def prepGemm(
         self, mm_dim: int, dtype: torch.dtype, curDevice: str, gemmTensor: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        return self.prepGemmNotSquare(mm_dim, mm_dim, mm_dim, mm_dim, dtype, curDevice, gemmTensor)
+        return self.prepGemmNotSquare(
+            mm_dim, mm_dim, mm_dim, mm_dim, dtype, curDevice, gemmTensor
+        )
 
     def prepComm(
         self,
@@ -1161,9 +1231,13 @@ class paramCommsBench(ABC):
         if allocate:
             if commsParams.dcheck == 1:
                 # use predictable values for data validation check
-                ipTensor = self.backendFuncs.alloc_ones([numElementsIn], curDevice, dtype, scaleFactor=self.initVal)
+                ipTensor = self.backendFuncs.alloc_ones(
+                    [numElementsIn], curDevice, dtype, scaleFactor=self.initVal
+                )
             else:
-                ipTensor = self.backendFuncs.alloc_random([numElementsIn], curDevice, dtype, scaleFactor)
+                ipTensor = self.backendFuncs.alloc_random(
+                    [numElementsIn], curDevice, dtype, scaleFactor
+                )
         else:
             ipTensor = torch.Tensor()
         # TODO: consider using this dictionary to check valid keywords rather than silently defaulting
@@ -1218,13 +1292,21 @@ class paramCommsBench(ABC):
         parser.add_argument(
             "--master-ip",
             type=str,
-            default=(default_master_ip if "MASTER_ADDR" not in os.environ else os.environ["MASTER_ADDR"]),
+            default=(
+                default_master_ip
+                if "MASTER_ADDR" not in os.environ
+                else os.environ["MASTER_ADDR"]
+            ),
             help="The master-IP to coordinate for Pytorch distributed stack",
         )  # The master-IP to coordinate.
         parser.add_argument(
             "--master-port",
             type=str,
-            default=(default_master_port if "MASTER_PORT" not in os.environ else os.environ["MASTER_PORT"]),
+            default=(
+                default_master_port
+                if "MASTER_PORT" not in os.environ
+                else os.environ["MASTER_PORT"]
+            ),
             help="The master-port to coordinate for Pytorch distributed stack",
         )  # The master-port to coordinate.
         parser.add_argument(
@@ -1445,7 +1527,9 @@ def init_emb_lookup(collectiveArgs, commsParams, backendFuncs):
     bag_size = commsParams.bag_size
 
     num_emb_tables_batched = (
-        num_tables_per_device if collectiveArgs.num_emb_tables_batched == -1 else collectiveArgs.num_emb_tables_batched
+        num_tables_per_device
+        if collectiveArgs.num_emb_tables_batched == -1
+        else collectiveArgs.num_emb_tables_batched
     )
     collectiveArgs.num_emb_ops = num_tables_per_device // num_emb_tables_batched
 
@@ -1455,8 +1539,16 @@ def init_emb_lookup(collectiveArgs, commsParams, backendFuncs):
                 (
                     num_embeddings,
                     collectiveArgs.emb_dim,
-                    (EmbeddingLocation.DEVICE if commsParams.device == "cuda" else EmbeddingLocation.HOST),
-                    (ComputeDevice.CUDA if commsParams.device == "cuda" else ComputeDevice.CPU),
+                    (
+                        EmbeddingLocation.DEVICE
+                        if commsParams.device == "cuda"
+                        else EmbeddingLocation.HOST
+                    ),
+                    (
+                        ComputeDevice.CUDA
+                        if commsParams.device == "cuda"
+                        else ComputeDevice.CPU
+                    ),
                 )
                 for _ in range(num_emb_tables_batched)
             ],
@@ -1484,4 +1576,6 @@ def init_emb_lookup(collectiveArgs, commsParams, backendFuncs):
                 weights,
             )
 
-        collectiveArgs.grad_output = torch.rand_like(collectiveArgs.LookupOut).to(collectiveArgs.device)
+        collectiveArgs.grad_output = torch.rand_like(collectiveArgs.LookupOut).to(
+            collectiveArgs.device
+        )

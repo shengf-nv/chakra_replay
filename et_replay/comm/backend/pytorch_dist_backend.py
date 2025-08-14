@@ -131,9 +131,13 @@ class PyTorchDistBackend(BaseBackend):
                 timer=collectiveArgs.quant_time,
                 description="# PARAM: Allreduce quantization #",
             ):
-                quantized = _downcast(collectiveArgs.ipTensor, collectiveArgs.allreduce_qcomm)
+                quantized = _downcast(
+                    collectiveArgs.ipTensor, collectiveArgs.allreduce_qcomm
+                )
         else:
-            quantized = collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair
+            quantized = (
+                collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair
+            )
         if self.use_ext_dist:
             retObj = collectiveArgs.group.all_reduce(
                 tensor=quantized,
@@ -171,9 +175,13 @@ class PyTorchDistBackend(BaseBackend):
                 timer=collectiveArgs.quant_time,
                 description="# PARAM: Reduce quantization #",
             ):
-                quantized = _downcast(collectiveArgs.ipTensor, collectiveArgs.allreduce_qcomm)
+                quantized = _downcast(
+                    collectiveArgs.ipTensor, collectiveArgs.allreduce_qcomm
+                )
         else:
-            quantized = collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair
+            quantized = (
+                collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair
+            )
 
         retObj = dist.reduce(
             quantized,
@@ -198,7 +206,9 @@ class PyTorchDistBackend(BaseBackend):
         if retFlag:
             return retObj
 
-    def all_to_all(self, collectiveArgs: collectiveArgsHolder, retFlag=False, pair=False):
+    def all_to_all(
+        self, collectiveArgs: collectiveArgsHolder, retFlag=False, pair=False
+    ):
         # pair=True mode does not support quantization
         if collectiveArgs.all2all_qcomm and not pair:
             collectiveArgs.use_ext_dist = self.use_ext_dist
@@ -226,7 +236,9 @@ class PyTorchDistBackend(BaseBackend):
                 r.wait()
         else:
             if collectiveArgs.num_emb_tables_batched > 0:
-                logger.warning("Not using batched embedding tables because extend distributed package not in use")
+                logger.warning(
+                    "Not using batched embedding tables because extend distributed package not in use"
+                )
 
             work = dist.all_to_all(
                 collectiveArgs.opTensor,
@@ -258,8 +270,16 @@ class PyTorchDistBackend(BaseBackend):
             work = collectiveArgs.group.alltoall_single(
                 collectiveArgs.opTensor if not pair else collectiveArgs.opTensor_pair,
                 collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair,
-                (collectiveArgs.opTensor_split if not pair else collectiveArgs.opTensor_split_pair),
-                (collectiveArgs.ipTensor_split if not pair else collectiveArgs.ipTensor_split_pair),
+                (
+                    collectiveArgs.opTensor_split
+                    if not pair
+                    else collectiveArgs.opTensor_split_pair
+                ),
+                (
+                    collectiveArgs.ipTensor_split
+                    if not pair
+                    else collectiveArgs.ipTensor_split_pair
+                ),
                 async_op=collectiveArgs.asyncOp,
             )
         else:
@@ -267,14 +287,26 @@ class PyTorchDistBackend(BaseBackend):
             # Have to make them the same dtype before calling all_to_allv
             # Otherwise, it will raise an error
             if collectiveArgs.opTensor.dtype != collectiveArgs.ipTensor.dtype:
-                logger.warning("all_to_allv: opTensor and ipTensor are not the same dtype")
-                collectiveArgs.opTensor = collectiveArgs.opTensor.to(collectiveArgs.ipTensor.dtype)
+                logger.warning(
+                    "all_to_allv: opTensor and ipTensor are not the same dtype"
+                )
+                collectiveArgs.opTensor = collectiveArgs.opTensor.to(
+                    collectiveArgs.ipTensor.dtype
+                )
 
             work = dist.all_to_all_single(
                 collectiveArgs.opTensor if not pair else collectiveArgs.opTensor_pair,
                 collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair,
-                (collectiveArgs.opTensor_split if not pair else collectiveArgs.opTensor_split_pair),
-                (collectiveArgs.ipTensor_split if not pair else collectiveArgs.ipTensor_split_pair),
+                (
+                    collectiveArgs.opTensor_split
+                    if not pair
+                    else collectiveArgs.opTensor_split_pair
+                ),
+                (
+                    collectiveArgs.ipTensor_split
+                    if not pair
+                    else collectiveArgs.ipTensor_split_pair
+                ),
                 group=collectiveArgs.group,
                 async_op=collectiveArgs.asyncOp,
             )
@@ -288,14 +320,30 @@ class PyTorchDistBackend(BaseBackend):
     def all_gather(self, collectiveArgs, retFlag=False, pair=False):
         if self.use_ext_dist:
             retObj = collectiveArgs.group.all_gather(
-                tensor_list=(collectiveArgs.opTensor if not pair else collectiveArgs.opTensor_pair),
-                tensor=(collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair),
+                tensor_list=(
+                    collectiveArgs.opTensor
+                    if not pair
+                    else collectiveArgs.opTensor_pair
+                ),
+                tensor=(
+                    collectiveArgs.ipTensor
+                    if not pair
+                    else collectiveArgs.ipTensor_pair
+                ),
                 async_op=collectiveArgs.asyncOp,
             )
         else:
             retObj = dist.all_gather(
-                tensor_list=(collectiveArgs.opTensor if not pair else collectiveArgs.opTensor_pair),
-                tensor=(collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair),
+                tensor_list=(
+                    collectiveArgs.opTensor
+                    if not pair
+                    else collectiveArgs.opTensor_pair
+                ),
+                tensor=(
+                    collectiveArgs.ipTensor
+                    if not pair
+                    else collectiveArgs.ipTensor_pair
+                ),
                 group=collectiveArgs.group,
                 async_op=collectiveArgs.asyncOp,
             )  # synchronicity is maintained in runColl
@@ -315,7 +363,11 @@ class PyTorchDistBackend(BaseBackend):
             opTensors = collectiveArgs.opTensor
 
         retObj = dist.gather(
-            gather_list=(opTensors if (collectiveArgs.global_rank == collectiveArgs.srcOrDst) else None),
+            gather_list=(
+                opTensors
+                if (collectiveArgs.global_rank == collectiveArgs.srcOrDst)
+                else None
+            ),
             tensor=ipTensors,
             dst=collectiveArgs.srcOrDst,
             group=self.get_collective_group(collectiveArgs),
@@ -338,7 +390,11 @@ class PyTorchDistBackend(BaseBackend):
 
         retObj = dist.scatter(
             tensor=opTensors,
-            scatter_list=(ipTensors if (collectiveArgs.global_rank == collectiveArgs.srcOrDst) else None),
+            scatter_list=(
+                ipTensors
+                if (collectiveArgs.global_rank == collectiveArgs.srcOrDst)
+                else None
+            ),
             src=collectiveArgs.srcOrDst,
             group=self.get_collective_group(collectiveArgs),
             async_op=collectiveArgs.asyncOp,
@@ -425,7 +481,9 @@ class PyTorchDistBackend(BaseBackend):
 
     def broadcast(self, collectiveArgs, retFlag=False, pair=False):
         retObj = dist.broadcast(
-            tensor=(collectiveArgs.opTensor if not pair else collectiveArgs.opTensor_pair),
+            tensor=(
+                collectiveArgs.opTensor if not pair else collectiveArgs.opTensor_pair
+            ),
             src=collectiveArgs.srcOrDst,
             group=self.get_collective_group(collectiveArgs),
             async_op=collectiveArgs.asyncOp,
@@ -495,7 +553,11 @@ class PyTorchDistBackend(BaseBackend):
             collectiveArgs.waitObj.append(req)
 
     def device_sync(self, collectiveArgs):
-        dev_str = self.commsParams["device"] if isinstance(self.commsParams, dict) else self.commsParams.device
+        dev_str = (
+            self.commsParams["device"]
+            if isinstance(self.commsParams, dict)
+            else self.commsParams.device
+        )
         if dev_str == "cuda":
             torch.cuda.synchronize(collectiveArgs.device)
 
@@ -523,13 +585,21 @@ class PyTorchDistBackend(BaseBackend):
         if self.use_ext_dist:
             retObj = collectiveArgs.group.barrier(
                 async_op=collectiveArgs.asyncOp,
-                device_ids=([my_dev.index] if dist.get_backend(collectiveArgs.group.my_pg) == "nccl" else None),
+                device_ids=(
+                    [my_dev.index]
+                    if dist.get_backend(collectiveArgs.group.my_pg) == "nccl"
+                    else None
+                ),
             )
         else:
             retObj = dist.barrier(
                 collectiveArgs.group,
                 async_op=collectiveArgs.asyncOp,
-                device_ids=([my_dev.index] if dist.get_backend(collectiveArgs.group) == "nccl" else None),
+                device_ids=(
+                    [my_dev.index]
+                    if dist.get_backend(collectiveArgs.group) == "nccl"
+                    else None
+                ),
             )
 
         if collectiveArgs.asyncOp:
@@ -539,7 +609,11 @@ class PyTorchDistBackend(BaseBackend):
             return retObj
 
     def barrier_all_ranks(self):
-        dist.barrier(device_ids=([self.get_device().index] if dist.get_backend() == "nccl" else None))
+        dist.barrier(
+            device_ids=(
+                [self.get_device().index] if dist.get_backend() == "nccl" else None
+            )
+        )
 
     def sync_barrier(self, collectiveArgs, desc="dummy"):
         # ensure all streams have finished outstanding events before calling barrier
@@ -565,10 +639,14 @@ class PyTorchDistBackend(BaseBackend):
         collectiveArgs.MMout = torch.mm(collectiveArgs.MMin1, collectiveArgs.MMin2)
 
     def add(self, collectiveArgs):
-        collectiveArgs.compOut = torch.add(collectiveArgs.compIn1, collectiveArgs.compIn2, alpha=2)
+        collectiveArgs.compOut = torch.add(
+            collectiveArgs.compIn1, collectiveArgs.compIn2, alpha=2
+        )
 
     def sub(self, collectiveArgs):
-        collectiveArgs.compOut = torch.sub(collectiveArgs.compIn1, collectiveArgs.compIn2, alpha=2)
+        collectiveArgs.compOut = torch.sub(
+            collectiveArgs.compIn1, collectiveArgs.compIn2, alpha=2
+        )
 
     def add_num(self, collectiveArgs):
         collectiveArgs.compOut = torch.add(collectiveArgs.compIn1, 20)
@@ -611,20 +689,38 @@ class PyTorchDistBackend(BaseBackend):
         _sizeBytes = 0
         # opTensor could be a list of tensor for all_gather/gather, get the aggregated size
         if isinstance(collectiveArgs.opTensor, list):
-            _sizeBytes = sum([t.nelement() * t.element_size() for t in collectiveArgs.opTensor])
+            _sizeBytes = sum(
+                [t.nelement() * t.element_size() for t in collectiveArgs.opTensor]
+            )
         # reduce scatter
         elif isinstance(collectiveArgs.ipTensor, list):
-            _sizeBytes = sum([t.nelement() * t.element_size() for t in collectiveArgs.ipTensor])
+            _sizeBytes = sum(
+                [t.nelement() * t.element_size() for t in collectiveArgs.ipTensor]
+            )
         # reduce_scatter_base and reduce_scatter_v should use input tensor for total memory size
         elif collectiveArgs.collective in ["reduce_scatter_v", "reduce_scatter_base"]:
-            _sizeBytes = collectiveArgs.ipTensor.nelement() * collectiveArgs.ipTensor.element_size()
+            _sizeBytes = (
+                collectiveArgs.ipTensor.nelement()
+                * collectiveArgs.ipTensor.element_size()
+            )
         else:
-            _sizeBytes = collectiveArgs.opTensor.nelement() * collectiveArgs.opTensor.element_size()
+            _sizeBytes = (
+                collectiveArgs.opTensor.nelement()
+                * collectiveArgs.opTensor.element_size()
+            )
         if pair:
             if isinstance(collectiveArgs.opTensor_pair, list):
-                _sizeBytes = sum([t.nelement() * t.element_size() for t in collectiveArgs.opTensor_pair])
+                _sizeBytes = sum(
+                    [
+                        t.nelement() * t.element_size()
+                        for t in collectiveArgs.opTensor_pair
+                    ]
+                )
             else:
-                _sizeBytes = collectiveArgs.opTensor_pair.nelement() * collectiveArgs.opTensor_pair.element_size()
+                _sizeBytes = (
+                    collectiveArgs.opTensor_pair.nelement()
+                    * collectiveArgs.opTensor_pair.element_size()
+                )
 
         return _sizeBytes
 
@@ -643,9 +739,13 @@ class PyTorchDistBackend(BaseBackend):
             torch.int32,
             torch.long,
         ):
-            ipTensor = torch.randint(low=0, high=10, size=tuple(sizeArr), device=curRankDevice, dtype=dtype)
+            ipTensor = torch.randint(
+                low=0, high=10, size=tuple(sizeArr), device=curRankDevice, dtype=dtype
+            )
         elif dtype == torch.bool:
-            ipTensor = torch.rand(sizeArr, device=curRankDevice, dtype=torch.float32) < 0.5
+            ipTensor = (
+                torch.rand(sizeArr, device=curRankDevice, dtype=torch.float32) < 0.5
+            )
         else:
             ipTensor = torch.rand(sizeArr, device=curRankDevice, dtype=dtype)
             if (scaleFactor) != 0:
@@ -655,10 +755,14 @@ class PyTorchDistBackend(BaseBackend):
     def alloc_embedding_tables(self, n, m, curRankDevice, dtype):
         EE = nn.EmbeddingBag(n, m, mode="sum", sparse=True)
 
-        W = np.random.uniform(low=-(np.sqrt(1 / n)), high=np.sqrt(1 / n), size=(n, m)).astype(np.float32)
+        W = np.random.uniform(
+            low=-(np.sqrt(1 / n)), high=np.sqrt(1 / n), size=(n, m)
+        ).astype(np.float32)
         # approach 1
 
-        EE.weight.data = torch.tensor(W, dtype=dtype, requires_grad=True, device=curRankDevice)
+        EE.weight.data = torch.tensor(
+            W, dtype=dtype, requires_grad=True, device=curRankDevice
+        )
         return EE
 
     def alloc_empty(self, sizeArr, dtype, curRankDevice):
@@ -705,13 +809,19 @@ class PyTorchDistBackend(BaseBackend):
     def get_device(self):
         """get current device: 'cpu' or 'cuda'"""
         # TODO: this is a temporary workaround; need to unify the type of commsParams in comms and dlrm
-        dev_str = self.commsParams["device"] if isinstance(self.commsParams, dict) else self.commsParams.device
+        dev_str = (
+            self.commsParams["device"]
+            if isinstance(self.commsParams, dict)
+            else self.commsParams.device
+        )
         my_dev = torch.device(dev_str)
         if dev_str == "cuda":
             # explicitly select the device ordinal based on the local rank
             ordinal = self.get_local_rank()
             if self.get_local_rank() == -1:
-                logger.warning("Cannot determine device ordinal since LOCAL_RANK is -1. Try GPU 0 and continue. ")
+                logger.warning(
+                    "Cannot determine device ordinal since LOCAL_RANK is -1. Try GPU 0 and continue. "
+                )
                 ordinal = 0
             my_dev = torch.device(f"cuda:{ordinal}")
         elif dev_str != "cpu":
@@ -735,13 +845,21 @@ class PyTorchDistBackend(BaseBackend):
 
     def set_device(self, local_rank, global_rank):
         """set current device: 'cpu' or 'cuda'"""
-        dev_str = self.commsParams["device"] if isinstance(self.commsParams, dict) else self.commsParams.device
+        dev_str = (
+            self.commsParams["device"]
+            if isinstance(self.commsParams, dict)
+            else self.commsParams.device
+        )
         if dev_str.startswith("cuda"):
             if local_rank > torch.cuda.device_count():
-                raise ValueError(f"Insufficient #GPUs: available {torch.cuda.device_count()} requested {local_rank}")
+                raise ValueError(
+                    f"Insufficient #GPUs: available {torch.cuda.device_count()} requested {local_rank}"
+                )
             torch.cuda.set_device(local_rank)
 
-        logger.info("rank %s set torch device to %s:%s", global_rank, dev_str, local_rank)
+        logger.info(
+            "rank %s set torch device to %s:%s", global_rank, dev_str, local_rank
+        )
 
     def get_new_stream(self):
         """get/allocate a new stream"""
@@ -782,7 +900,11 @@ class PyTorchDistBackend(BaseBackend):
         """Synchronize a stream with its associated device"""
         if device is not None and device.type == "cuda":
             # if the stream is None, sync on the current default stream
-            cur_stream = stream if stream is not None else torch.cuda.current_stream(device=device)
+            cur_stream = (
+                stream
+                if stream is not None
+                else torch.cuda.current_stream(device=device)
+            )
             cur_stream.synchronize()
         else:
             # no stream available, do nothing
@@ -804,7 +926,9 @@ class PyTorchDistBackend(BaseBackend):
         self.collectiveFunc["send"] = self.isend
         self.collectiveFunc["recv"] = self.irecv
         self.collectiveFunc["batch_isend_irecv"] = self.batch_isend_irecv
-        self.collectiveFunc["pt2pt"] = self.noop  # dummy entry to support pt2pt benchmark
+        self.collectiveFunc["pt2pt"] = (
+            self.noop
+        )  # dummy entry to support pt2pt benchmark
 
         self.computeFunc["emb_lookup"] = self.emb_lookup
         self.computeFunc["add"] = self.add
@@ -815,7 +939,9 @@ class PyTorchDistBackend(BaseBackend):
 
     def get_new_pg(self, group_ranks, backend, pg_desc=""):
         if self.use_ext_dist:
-            return extend_distributed.new_extend_process_group(ranks=group_ranks, backend=backend)
+            return extend_distributed.new_extend_process_group(
+                ranks=group_ranks, backend=backend
+            )
         else:
             pg = dist.new_group(ranks=group_ranks, backend=backend, group_desc=pg_desc)
             return pg if pg is not dist.GroupMember.NON_GROUP_MEMBER else None
@@ -825,7 +951,9 @@ class PyTorchDistBackend(BaseBackend):
             tensorList = [t.cpu().detach().numpy() for t in tensorList]
         return np.array(tensorList)
 
-    def initialize_backend(self, master_ip, master_port, backend="gloo", eager_mode=False):
+    def initialize_backend(
+        self, master_ip, master_port, backend="gloo", eager_mode=False
+    ):
         # Set CUDA device before initializing backend
         # Required for backends that don't do lazy initialization, e.g. UCC
         self.set_device(self.bootstrap_info.local_rank, self.bootstrap_info.global_rank)
@@ -862,7 +990,11 @@ class PyTorchDistBackend(BaseBackend):
                 world_size=world_size,
                 store=self.tcp_store if self.commsParams.init_method is None else None,
                 init_method=self.commsParams.init_method,
-                device_id=(torch.device(f"cuda:{self.bootstrap_info.local_rank}") if eager_mode else None),
+                device_id=(
+                    torch.device(f"cuda:{self.bootstrap_info.local_rank}")
+                    if eager_mode
+                    else None
+                ),
             )
 
         # default 1 group, maybe overwritten by user created groups via initialize_groups
@@ -886,21 +1018,29 @@ class PyTorchDistBackend(BaseBackend):
             json_data = sync_store.get(str(i))
 
             # convert pg_id in json_data to int
-            pg_id_to_group_ranks = {int(pg_id): rank for pg_id, rank in json.loads(json_data).items()}
+            pg_id_to_group_ranks = {
+                int(pg_id): rank for pg_id, rank in json.loads(json_data).items()
+            }
 
             # map from indexed group_ranks to pgId, pgId of the group in current rank is the pgId defined in
             # ET, pgId of the group from other ranks is -1.
             # index is used to differentiate several groups with the same ranks.
             group_ranks_count: dict[tuple[int], int] = defaultdict(int)
-            for pg_id, group_ranks in dict(sorted(pg_id_to_group_ranks.items())).items():
+            for pg_id, group_ranks in dict(
+                sorted(pg_id_to_group_ranks.items())
+            ).items():
                 group_ranks.sort()
                 rank_tuple = tuple(group_ranks)
                 count = group_ranks_count[rank_tuple]
                 group_ranks_count[rank_tuple] = count + 1
-                idxed_group_ranks_to_pgId[tuple(group_ranks + [count])].append(pg_id if global_rank == i else -1)
+                idxed_group_ranks_to_pgId[tuple(group_ranks + [count])].append(
+                    pg_id if global_rank == i else -1
+                )
 
         # create additional groups, sort it to make sure pg are created in the same order for all ranks
-        for idxed_group_ranks, pg_ids in dict(sorted(idxed_group_ranks_to_pgId.items())).items():
+        for idxed_group_ranks, pg_ids in dict(
+            sorted(idxed_group_ranks_to_pgId.items())
+        ).items():
             if (
                 len(idxed_group_ranks[:-1]) > world_size
             ):  # this means that --auto-shrink is enabled, only use default pg

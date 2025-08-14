@@ -36,7 +36,9 @@ import pydot
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
-formatter = logging.Formatter("%(asctime)s] %(filename)s:%(lineno)d [%(levelname)s]: %(message)s")
+formatter = logging.Formatter(
+    "%(asctime)s] %(filename)s:%(lineno)d [%(levelname)s]: %(message)s"
+)
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
@@ -88,7 +90,9 @@ class TensorNode:
         self.shapes.add(tuple(shape))
 
     def is_leaf_tensor(self):
-        return (not self.sources) and self.sinks  # A tensor having no sources yet having some sinks is a leaf tensor
+        return (
+            (not self.sources) and self.sinks
+        )  # A tensor having no sources yet having some sinks is a leaf tensor
 
 
 @dataclass
@@ -180,7 +184,9 @@ class Node:
         self.commArgs: _CommArgs | None = comm_args
         self.tensor_range = json.loads(tensor_range) if tensor_range else None
         if self.tensor_range is not None:
-            self.tensor_range = {int(index): min_max for index, min_max in self.tensor_range.items()}
+            self.tensor_range = {
+                int(index): min_max for index, min_max in self.tensor_range.items()
+            }
 
     def get_inputs(self) -> Iterable:
         return zip(self.input_types, self.inputs, self.input_shapes)
@@ -203,7 +209,9 @@ class Node:
             has_parent_op = False
             tmp = self
             while 1:
-                if tmp.parent is None or tmp.id == tmp.parent_id:  # Reach the root process
+                if (
+                    tmp.parent is None or tmp.id == tmp.parent_id
+                ):  # Reach the root process
                     break
                 if tmp.parent.type == NodeType.OPERATOR:
                     has_parent_op = True
@@ -216,7 +224,11 @@ class Node:
         return not self.children
 
     def _get_grandest_parent(self) -> Node:
-        if self.parent is None or self.parent.name == "## BENCHMARK ##" or self.parent.name == "__ROOT_THREAD__":
+        if (
+            self.parent is None
+            or self.parent.name == "## BENCHMARK ##"
+            or self.parent.name == "__ROOT_THREAD__"
+        ):
             return self
         return self.parent._get_grandest_parent()
 
@@ -268,7 +280,9 @@ class Node:
             # for collectives, ET records both c10d::collective_function and
             # record_param_comms. Only record_param_comms is used for replay
             self.name == "record_param_comms"
-            or (self.op_schema != "" and not self.name.startswith("c10d::"))  # for aten ops
+            or (
+                self.op_schema != "" and not self.name.startswith("c10d::")
+            )  # for aten ops
             or self.kernel_backend == "triton"  # for PT2 triton kernels
         ):
             return NodeType.OPERATOR
@@ -286,7 +300,9 @@ class Node:
                 tensors.extend(self.get_tensors(zip(elem_type, input, shape)))
         return tensors
 
-    def get_tensor_strides(self, input_list: Iterable, stride_list: Iterable) -> list[tuple]:
+    def get_tensor_strides(
+        self, input_list: Iterable, stride_list: Iterable
+    ) -> list[tuple]:
         strides = []
         for (type, input, shape), stride in zip(input_list, stride_list):
             if type.startswith("Tensor"):
@@ -294,7 +310,9 @@ class Node:
             # GenericList could have tensor elements
             elif type.startswith("GenericList"):
                 elem_type = type[len("GenericList[") : -1].split(",")
-                strides.extend(self.get_tensor_strides(zip(elem_type, input, shape), stride))
+                strides.extend(
+                    self.get_tensor_strides(zip(elem_type, input, shape), stride)
+                )
         return strides
 
     def get_input_tensors(self) -> list[tuple]:
@@ -354,7 +372,9 @@ class ExecutionTrace:
         }
         create_node = node_creation_func.get(self.schema, None)
         if create_node is None:
-            raise ValueError(f"No corresponding node creation function found for schema version {self.schema}")
+            raise ValueError(
+                f"No corresponding node creation function found for schema version {self.schema}"
+            )
 
         for x in nodes_list:
             id = x["id"]
@@ -498,7 +518,11 @@ class ExecutionTrace:
             _,
         ) = ExecutionTrace._read_attrs(x)
 
-        comm_attrs = ExecutionTrace._read_comm_attrs(x) if x["name"] == "record_param_comms" else None
+        comm_attrs = (
+            ExecutionTrace._read_comm_attrs(x)
+            if x["name"] == "record_param_comms"
+            else None
+        )
 
         return Node(
             x["name"],
@@ -538,7 +562,11 @@ class ExecutionTrace:
             tensor_range,
         ) = ExecutionTrace._read_attrs(x)
 
-        comm_attrs = ExecutionTrace._read_comm_attrs(x) if x["name"] == "record_param_comms" else None
+        comm_attrs = (
+            ExecutionTrace._read_comm_attrs(x)
+            if x["name"] == "record_param_comms"
+            else None
+        )
 
         return Node(
             x["name"],
@@ -586,7 +614,9 @@ class ExecutionTrace:
             return None
         return len(self.iteration_ids) - 1
 
-    def get_unique_ops(self, detail: bool = False, clean: bool = False, json_format: bool = False):
+    def get_unique_ops(
+        self, detail: bool = False, clean: bool = False, json_format: bool = False
+    ):
         def get_param(value, type, shape):
             type = type.lower()
             SCALAR_TYPES = {"int", "long", "float", "double", "bool"}
@@ -620,10 +650,14 @@ class ExecutionTrace:
             if n.is_op(detail):
                 if n.name in ops:
                     ops[n.name]["count"] += 1
-                    ops[n.name]["inputs"].append(convert_inputs(n.inputs, n.input_types, n.input_shapes))
+                    ops[n.name]["inputs"].append(
+                        convert_inputs(n.inputs, n.input_types, n.input_shapes)
+                    )
                 else:
                     ops[n.name] = {"count": 1}
-                    ops[n.name]["inputs"] = [convert_inputs(n.inputs, n.input_types, n.input_shapes)]
+                    ops[n.name]["inputs"] = [
+                        convert_inputs(n.inputs, n.input_types, n.input_shapes)
+                    ]
         # Remove duplicates
         for attr in ops.values():
             # use json to serialize list of dict to string for set
@@ -632,7 +666,9 @@ class ExecutionTrace:
 
         return ops
 
-    def print_op_stats(self, detail: bool = False, clean: bool = False, json_format: bool = False):
+    def print_op_stats(
+        self, detail: bool = False, clean: bool = False, json_format: bool = False
+    ):
         ops = self.get_unique_ops(detail, clean, json_format)
 
         if json_format:
@@ -659,7 +695,9 @@ class ExecutionTrace:
                 )
             )
         for id in self.tensors:
-            dot.add_node(pydot.Node(id, label=f"T{id}", style="filled", fillcolor="#e8faff"))
+            dot.add_node(
+                pydot.Node(id, label=f"T{id}", style="filled", fillcolor="#e8faff")
+            )
         nodes = len(self.nodes) + len(self.tensors)
         edges = 0
         for id, n in self.nodes.items():
@@ -681,7 +719,9 @@ class ExecutionTrace:
 
     def gen_graph(self, file_name, type=None):
         dot_max_nodes = 300
-        if (len(self.nodes) < dot_max_nodes or type == "graphviz") and type != "graphml":
+        if (
+            len(self.nodes) < dot_max_nodes or type == "graphviz"
+        ) and type != "graphml":
             out_name = f"{file_name}.svg"
             self.gen_graphviz(out_name)
         else:
@@ -750,7 +790,9 @@ class ExecutionTrace:
             if prev_id not in self.nodes:
                 print(f"Missing source node for {prev_id}")
             elif prev_id:
-                print(f"{' ' * 16}{tensor_id}: {dtype} {shape} <-- {prev_id} ({self.nodes[prev_id].name})")
+                print(
+                    f"{' ' * 16}{tensor_id}: {dtype} {shape} <-- {prev_id} ({self.nodes[prev_id].name})"
+                )
             else:
                 print(f"{' ' * 16}{tensor_id}: {dtype} {shape}")
 
@@ -763,7 +805,9 @@ class ExecutionTrace:
                 if s > id and s < next_id:
                     next_id = s
             if next_id != sys.maxsize:
-                print(f"{' ' * 16}{tensor_id}: {dtype} {shape} --> {next_id} ({self.nodes[next_id].name})")
+                print(
+                    f"{' ' * 16}{tensor_id}: {dtype} {shape} --> {next_id} ({self.nodes[next_id].name})"
+                )
             else:
                 print(f"{' ' * 16}{tensor_id}: {dtype} {shape}")
 
@@ -814,7 +858,8 @@ class ExecutionTrace:
 
         clone = copy.deepcopy(self)
         trimmed_nodes = filter(
-            lambda p: (p[1].id >= start_id and p[1].id < end_id) or p[1].parent_id == 1,  # process and thread nodes
+            lambda p: (p[1].id >= start_id and p[1].id < end_id)
+            or p[1].parent_id == 1,  # process and thread nodes
             clone.nodes.items(),
         )
         clone.nodes = dict(trimmed_nodes)
@@ -832,7 +877,11 @@ class ExecutionTrace:
         assert len(thread_nodes) > 0
 
         for node in clone.nodes.values():
-            if node.parent is not None and node.parent_id != 1 and (node.parent_id not in node_id_set):
+            if (
+                node.parent is not None
+                and node.parent_id != 1
+                and (node.parent_id not in node_id_set)
+            ):
                 logger.info(
                     "Fixing parent for node id = %d, parent = %d",
                     node.id,
@@ -983,8 +1032,12 @@ class GraphML:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Execution trace building and analysis")
-    parser.add_argument("--input", type=str, required=True, help="input execution trace json file.")
+    parser = argparse.ArgumentParser(
+        description="Execution trace building and analysis"
+    )
+    parser.add_argument(
+        "--input", type=str, required=True, help="input execution trace json file."
+    )
     parser.add_argument(
         "--step-annotation",
         type=str,
@@ -1066,7 +1119,11 @@ def main():
 
     execution_json: str = args.input
 
-    with gzip.open(execution_json, "rb") if execution_json.endswith("gz") else open(execution_json) as execution_data:
+    with (
+        gzip.open(execution_json, "rb")
+        if execution_json.endswith("gz")
+        else open(execution_json) as execution_data
+    ):
         execution_data: TextIO
         execution_trace: ExecutionTrace = ExecutionTrace(json.load(execution_data))
         execution_trace.set_iterations(args.step_annotation)

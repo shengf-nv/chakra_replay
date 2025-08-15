@@ -46,7 +46,7 @@ exclude =
     ./mypy_plugins,
     ./scripts,
     ./third_party,
-    ./tools,
+    ./lint-tools,
     ./venv,
     *.pyi,
     vendor_internal/**,

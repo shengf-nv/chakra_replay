@@ -192,4 +192,4 @@ keep-runtime-typing = true
 [tool.ruff.lint.per-file-ignores]
 
 [tool.codespell]
-ignore-words = "tools/linter/dictionary.txt"
+ignore-words = "lint-tools/linter/dictionary.txt"

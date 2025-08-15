@@ -14,7 +14,7 @@ from typing import NamedTuple
 
 REPO_ROOT = Path(__file__).absolute().parents[3]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
-DICTIONARY = REPO_ROOT / "tools" / "linter" / "dictionary.txt"
+DICTIONARY = REPO_ROOT / "lint-tools" / "linter" / "dictionary.txt"
 
 FORBIDDEN_WORDS = {
     "multipy",  # project pytorch/multipy is dead  # codespell:ignore multipy

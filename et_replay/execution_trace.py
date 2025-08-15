@@ -91,8 +91,8 @@ class TensorNode:
 
     def is_leaf_tensor(self):
         return (
-            (not self.sources) and self.sinks
-        )  # A tensor having no sources yet having some sinks is a leaf tensor
+            not self.sources
+        ) and self.sinks  # A tensor having no sources yet having some sinks is a leaf tensor
 
 
 @dataclass
@@ -1119,11 +1119,10 @@ def main():
 
     execution_json: str = args.input
 
-    with (
-        gzip.open(execution_json, "rb")
-        if execution_json.endswith("gz")
-        else open(execution_json) as execution_data
-    ):
+    # fmt: off
+    with gzip.open(execution_json, "rb") if execution_json.endswith("gz") else open(
+        execution_json
+    ) as execution_data:
         execution_data: TextIO
         execution_trace: ExecutionTrace = ExecutionTrace(json.load(execution_data))
         execution_trace.set_iterations(args.step_annotation)
@@ -1151,6 +1150,7 @@ def main():
                 execution_trace.gen_graph(out_file, "graphml")
             else:
                 execution_trace.gen_graph(out_file)
+    # fmt: on
 
 
 if __name__ == "__main__":

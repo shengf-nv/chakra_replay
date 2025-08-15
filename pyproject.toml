@@ -36,7 +36,7 @@ include_trailing_comma = true
 combine_as_imports = true
 
 [tool.usort.known]
-first_party = ["et_replay"]
+first_party = ["torch", "torch_xla", "et_replay"]
 standard_library = ["typing_extensions"]
 
 [tool.ruff]

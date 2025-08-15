@@ -287,7 +287,7 @@ include_patterns = [
 # These are not library code, but scripts in their own right, and so
 # therefore are permitted to use logging
 exclude_patterns = [
-    'tools/**',
+    'lint-tools/**',
     'test/**',
     'vendor_internal/**',
     '**/vendor_internal/**',
@@ -431,7 +431,7 @@ command = [
     '@{{PATHSFILE}}'
 ]
 exclude_patterns = [
-    'tools/**/*.py',
+    'lint-tools/**/*.py',
     'mypy_plugins/**/*.py',
     '**/vendor_internal/**',
 ]
@@ -511,7 +511,7 @@ include_patterns = [
     'pyproject.toml',
 ]
 exclude_patterns = [
-    'tools/**',
+    'lint-tools/**',
     'scripts/**',
     'third_party/**',
     'vendor_internal/**',

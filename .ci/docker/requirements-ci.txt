@@ -22,14 +22,17 @@ coremltools==8.3 ; python_version == "3.12"
 #test that import:
 
 #dataclasses #this breaks some platforms
-#Description: Provides decorators for auto adding special methods to user classes
+#Description: Provides decorators for auto adding special methods to user
+#classes
 #Pinned versions:
 #test that import:
 
 dill==0.3.7
-#Description: dill extends pickle with serializing and de-serializing for most built-ins
+#Description: dill extends pickle with serializing and de-serializing for most
+#built-ins
 #Pinned versions: 0.3.7
-#test that import: dynamo/test_replay_record.py test_dataloader.py test_datapipe.py test_serialization.py
+#test that import: dynamo/test_replay_record.py test_dataloader.py
+#test_datapipe.py test_serialization.py
 
 expecttest==0.3.0
 #Description: method for writing tests where test framework auto populates
@@ -122,8 +125,10 @@ numba==0.60.0 ; python_version == "3.12"
 #numpy
 #Description: Provides N-dimensional arrays and linear algebra
 #Pinned versions: 1.26.2
-#test that import: test_view_ops.py, test_unary_ufuncs.py, test_type_promotion.py,
-#test_type_info.py, test_torch.py, test_tensorexpr_pybind.py, test_tensorexpr.py,
+#test that import: test_view_ops.py, test_unary_ufuncs.py,
+#test_type_promotion.py,
+#test_type_info.py, test_torch.py, test_tensorexpr_pybind.py,
+#test_tensorexpr.py,
 #test_tensorboard.py, test_tensor_creation_ops.py, test_static_runtime.py,
 #test_spectral_ops.py, test_sort_and_select.py, test_shape_ops.py,
 #test_segment_reductions.py, test_reductions.py, test_pruning_op.py,
@@ -156,7 +161,8 @@ optree==0.13.0
 #common_utils.py, test_eager_transforms.py, test_python_dispatch.py,
 #test_expanded_weights.py, test_decomp.py, test_overrides.py, test_masked.py,
 #test_ops.py, test_prims.py, test_subclass.py, test_functionalization.py,
-#test_schema_check.py, test_profiler_tree.py, test_meta.py, test_torchxla_num_output.py,
+#test_schema_check.py, test_profiler_tree.py, test_meta.py,
+#test_torchxla_num_output.py,
 #test_utils.py, test_proxy_tensor.py, test_memory_profiler.py, test_view_ops.py,
 #test_pointwise_ops.py, test_dtensor_ops.py, test_torchinductor.py, test_fx.py,
 #test_fake_tensor.py, test_mps.py
@@ -252,7 +258,8 @@ scipy==1.14.1 ; python_version >= "3.12"
 # Pin SciPy because of failing distribution tests (see #60347)
 #Description: scientific python
 #Pinned versions: 1.10.1
-#test that import: test_unary_ufuncs.py, test_torch.py,test_tensor_creation_ops.py
+#test that import: test_unary_ufuncs.py, test_torch.py,
+#test_tensor_creation_ops.py
 #test_spectral_ops.py, test_sparse_csr.py, test_reductions.py,test_nn.py
 #test_linalg.py, test_binary_ufuncs.py
 
@@ -290,7 +297,8 @@ lintrunner==0.12.7
 
 redis>=4.0.0
 #Description: redis database
-#test that import: anything that tests OSS caching/mocking (inductor/test_codecache.py, inductor/test_max_autotune.py)
+#test that import: anything that tests OSS caching/mocking
+#(inductor/test_codecache.py, inductor/test_max_autotune.py)
 
 ghstack==0.8.0
 #Description: ghstack tool
@@ -333,22 +341,26 @@ lxml==5.3.0
 PyGithub==2.3.0
 
 sympy==1.13.3
-#Description: Required by coremltools, also pinned in .github/requirements/pip-requirements-macOS.txt
+#Description: Required by coremltools, also pinned in
+#.github/requirements/pip-requirements-macOS.txt
 #Pinned versions:
 #test that import:
 
 onnx==1.18.0
-#Description: Required by onnx tests, and mypy and test_public_bindings.py when checking torch.onnx._internal
+#Description: Required by onnx tests, and mypy and test_public_bindings.py
+#when checking torch.onnx._internal
 #Pinned versions:
 #test that import:
 
 onnxscript==0.3.1
-#Description: Required by mypy and test_public_bindings.py when checking torch.onnx._internal
+#Description: Required by mypy and test_public_bindings.py when checking
+#torch.onnx._internal
 #Pinned versions:
 #test that import:
 
 parameterized==0.8.1
-#Description: Parameterizes unittests, both the tests themselves and the entire testing class
+#Description: Parameterizes unittests, both the tests themselves and the
+#entire testing class
 #Pinned versions:
 #test that import:
 
@@ -386,7 +398,15 @@ tlparse==0.3.30
 #Description: required for log parsing
 
 cuda-bindings>=12.0,<13.0 ; platform_machine != "s390x"
-#Description: required for testing CUDAGraph::raw_cuda_graph(). See https://nvidia.github.io/cuda-python/cuda-bindings/latest/support.html for how this version was chosen. Note "Any fix in the latest bindings would be backported to the prior major version" means that only the newest version of cuda-bindings will get fixes. Depending on the latest version of 12.x is okay because all 12.y versions will be supported via "CUDA minor version compatibility". Pytorch builds against 13.z versions of cuda toolkit work with 12.x versions of cuda-bindings as well because newer drivers work with old toolkits.
+#Description: required for testing CUDAGraph::raw_cuda_graph().
+#See https://nvidia.github.io/cuda-python/cuda-bindings/latest/support.html
+#for how this version was chosen. Note "Any fix in the latest bindings would
+#be backported to the prior major version" means that only the newest version
+#of cuda-bindings will get fixes. Depending on the latest version of 12.x is
+#okay because all 12.y versions will be supported via "CUDA minor version
+#compatibility". Pytorch builds against 13.z versions of cuda toolkit
+#work with 12.x versions of cuda-bindings as well because newer drivers
+#work with old toolkits.
 #test that import: test_cuda.py
 
 setuptools-git-versioning==2.1.0

@@ -26,12 +26,8 @@ from datetime import datetime
 from enum import Enum
 
 import numpy as np
-import torch
-from torch._C import _cuda_getCurrentRawStream as get_raw_stream
-from torch._inductor.async_compile import AsyncCompile
 
-# grid and split_scan_grid are dynamically loaded
-from torch.profiler import ExecutionTraceObserver
+import torch
 
 from et_replay.comm import comms_utils, param_profile
 from et_replay.comm.comms_utils import (
@@ -54,6 +50,11 @@ from et_replay.et_replay_utils import (
 from et_replay.execution_trace import ExecutionTrace, NodeType
 from et_replay.tools.comm_replay import commsTraceReplayBench
 from et_replay.utils import trace_handler
+from torch._C import _cuda_getCurrentRawStream as get_raw_stream
+from torch._inductor.async_compile import AsyncCompile
+
+# grid and split_scan_grid are dynamically loaded
+from torch.profiler import ExecutionTraceObserver
 
 
 logger = logging.getLogger(__name__)

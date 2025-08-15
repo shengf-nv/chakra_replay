@@ -16,9 +16,9 @@ import logging
 from abc import ABC, abstractmethod
 
 import torch
-from torch.distributed import ProcessGroup
 
 from et_replay.comm.param_profile import paramTimer
+from torch.distributed import ProcessGroup
 
 
 logger = logging.getLogger(__name__)

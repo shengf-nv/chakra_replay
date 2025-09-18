@@ -22,8 +22,19 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from et_replay.comm.backend.base_backend import BaseBackend, collectiveArgsHolder
 
+from torch._C._distributed_c10d import (
+    AllgatherOptions,
+    AllreduceCoalescedOptions,
+    AllreduceOptions,
+    AllToAllOptions,
+    BarrierOptions,
+    BroadcastOptions,
+    ReduceOptions,
+    ReduceScatterOptions,
+)
+
+from et_replay.comm.backend.base_backend import BaseBackend, collectiveArgsHolder
 from et_replay.comm.param_profile import paramProfile
 
 try:
@@ -164,7 +175,7 @@ class PyTorchDistBackend(BaseBackend):
         if retFlag:
             return retObj
 
-    def all_reduce_coalesced(self, collectiveArgs, retFlag=False, pair=False):
+    def allreduce_coalesced(self, collectiveArgs, retFlag=False, pair=False):
         collectiveArgs.opTensor = collectiveArgs.ipTensor
         # pair=True mode does not support quantization
         if (
@@ -195,12 +206,13 @@ class PyTorchDistBackend(BaseBackend):
         if self.use_ext_dist:
             raise NotImplementedError("all_reduce_coalesced is not implemented when use_ext_dist is true")
         else:
-            retObj = dist.allreduce_coalesced(
-                quantized,
-                op=collectiveArgs.op,
-                group=collectiveArgs.group,
-                async_op=collectiveArgs.asyncOp,
-            )  # synchronicity is maintained in runColl
+            group=self.get_collective_group(collectiveArgs)
+            all_reduce_opts = AllreduceCoalescedOptions()
+            all_reduce_opts.reduceOp = collectiveArgs.op
+            all_reduce_opts.asyncOp = collectiveArgs.asyncOp,
+
+            retObj = group.allreduce_coalesced(quantized, all_reduce_opts)
+            
         if (id(quantized) != id(collectiveArgs.ipTensor)) and not pair:
             if collectiveArgs.asyncOp:
                 retObj = retObj.get_future().then(_dequantize)
@@ -406,20 +418,20 @@ class PyTorchDistBackend(BaseBackend):
         if self.use_ext_dist:
             raise NotImplementedError("allgather_into_tensor_coalesced is not implemented when use_ext_dist is true")
         else:
-            retObj = dist.allgather_into_tensor_coalesced(
-                tensor_list=(
-                    collectiveArgs.opTensor
-                    if not pair
-                    else collectiveArgs.opTensor_pair
-                ),
-                tensor=(
-                    collectiveArgs.ipTensor
-                    if not pair
-                    else collectiveArgs.ipTensor_pair
-                ),
-                group=collectiveArgs.group,
-                async_op=collectiveArgs.asyncOp,
-            )  # synchronicity is maintained in runColl
+            opTensor=(
+                collectiveArgs.opTensor
+                if not pair
+                else collectiveArgs.opTensor_pair
+            ),
+            ipTensor=(
+                collectiveArgs.ipTensor
+                if not pair
+                else collectiveArgs.ipTensor_pair
+            ),
+            group=self.get_collective_group(collectiveArgs)
+            all_gather_opts = AllgatherOptions()
+            all_gather_opts.asyncOp = collectiveArgs.asyncOp
+            retObj = group.allgather_into_tensor_coalesced(opTensor, ipTensor, all_gather_opts)
 
         if collectiveArgs.asyncOp:
             collectiveArgs.waitObj.append(retObj)
@@ -539,13 +551,11 @@ class PyTorchDistBackend(BaseBackend):
             ipTensor = collectiveArgs.ipTensor
             opTensor = collectiveArgs.opTensor
 
-        retObj = dist.reduce_scatter_tensor_coalesced(
-            output=opTensor,
-            input=ipTensor,
-            op=collectiveArgs.op,
-            group=self.get_collective_group(collectiveArgs),
-            async_op=collectiveArgs.asyncOp,
-        )  # synchronicity is maintained in runColl
+        group=self.get_collective_group(collectiveArgs)
+        reduce_opts = ReduceScatterOptions()
+        reduce_opts.reduceOp = collectiveArgs.op
+        reduce_opts.asyncOp = collectiveArgs.asyncOp
+        retObj = group.reduce_scatter_tensor_coalesced(opTensor, ipTensor, reduce_opts)
 
         if collectiveArgs.asyncOp:
             collectiveArgs.waitObj.append(retObj)

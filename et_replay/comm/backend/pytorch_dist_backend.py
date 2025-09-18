@@ -26,11 +26,6 @@ import torch.nn as nn
 from torch._C._distributed_c10d import (
     AllgatherOptions,
     AllreduceCoalescedOptions,
-    AllreduceOptions,
-    AllToAllOptions,
-    BarrierOptions,
-    BroadcastOptions,
-    ReduceOptions,
     ReduceScatterOptions,
 )
 
@@ -418,16 +413,8 @@ class PyTorchDistBackend(BaseBackend):
         if self.use_ext_dist:
             raise NotImplementedError("allgather_into_tensor_coalesced is not implemented when use_ext_dist is true")
         else:
-            opTensor=(
-                collectiveArgs.opTensor
-                if not pair
-                else collectiveArgs.opTensor_pair
-            ),
-            ipTensor=(
-                collectiveArgs.ipTensor
-                if not pair
-                else collectiveArgs.ipTensor_pair
-            ),
+            opTensor =collectiveArgs.opTensor if not pair else collectiveArgs.opTensor_pair
+            ipTensor=collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair
             group=self.get_collective_group(collectiveArgs)
             all_gather_opts = AllgatherOptions()
             all_gather_opts.asyncOp = collectiveArgs.asyncOp

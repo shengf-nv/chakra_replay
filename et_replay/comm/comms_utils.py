@@ -1316,6 +1316,8 @@ class paramCommsBench(ABC):
         ipTensor = torch.Tensor()
 
         dispatchDict = {
+            "allgather_into_tensor_coalesced": self._prep_allgather_into_tensor_coalesced,
+            "allreduce_coalesced": self._prep_allreduce_coalesced,
             "all_to_allv": self._prep_all_to_allv,
             "all_to_all": self._prep_all_to_all,
             "all_gather": self._prep_all_gather,
@@ -1323,6 +1325,7 @@ class paramCommsBench(ABC):
             "all_gather_base": self._prep_all_gather_base,
             "reduce_scatter": self._prep_reduce_scatter,
             "reduce_scatter_base": self._prep_reduce_scatter_base,
+            "reduce_scatter_tensor_coalesced": self._prep_reduce_scatter_tensor_coalesced,
             "scatter": self._prep_reduce_scatter,
             "pt2pt": self._prep_pt2pt,
         }

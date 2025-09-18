@@ -871,7 +871,6 @@ class paramCommsBench(ABC):
 
     def _prep_all_to_allv(
         self,
-        ipTensor: torch.Tensor,
         curComm: commsArgs,
         commsParams: commsParamsHolderBase,
         numElementsIn: int,
@@ -882,12 +881,20 @@ class paramCommsBench(ABC):
         scaleFactor: float,
         allocate: bool = True,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Prepare the all_to_allv mode"""
-
+        """Prepare the all_to_allv mode""" 
+        ipTensor = torch.Tensor()
         opTensor = torch.Tensor()
         if allocate:
             # all_to_allv requires two tensors
-            # ipTensor has been allocated outside of this function, just pass in
+            if commsParams.dcheck == 1:
+                # use predictable values for data validation check
+                ipTensor = self.backendFuncs.alloc_ones(
+                    [numElementsIn], curDevice, dtype, scaleFactor=self.initVal
+                )
+            else:
+                ipTensor = self.backendFuncs.alloc_random(
+                    [numElementsIn], curDevice, dtype, scaleFactor
+                )
             opTensor = self.backendFuncs.alloc_random(
                 [numElementsOut], curDevice, dtype, scaleFactor
             )
@@ -911,7 +918,6 @@ class paramCommsBench(ABC):
 
     def _prep_all_to_all(
         self,
-        ipTensor: list[torch.Tensor],
         curComm: commsArgs,
         commsParams: commsParamsHolderBase,
         numElementsIn: int,
@@ -946,7 +952,6 @@ class paramCommsBench(ABC):
 
     def _prep_all_gather(
         self,
-        ipTensor: torch.Tensor,
         curComm: commsArgs,
         commsParams: commsParamsHolderBase,
         numElementsIn: int,
@@ -985,7 +990,6 @@ class paramCommsBench(ABC):
 
     def _prep_all_gather_base(
         self,
-        ipTensor: torch.Tensor,
         curComm: commsArgs,
         commsParams: commsParamsHolderBase,
         numElementsIn: int,
@@ -996,6 +1000,7 @@ class paramCommsBench(ABC):
         scaleFactor: float,
         allocate: bool = True,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        ipTensor = torch.Tensor()
         opTensor = torch.Tensor()
         if not commsParams.size_from_trace:
             numElementsOut = numElementsIn
@@ -1023,7 +1028,6 @@ class paramCommsBench(ABC):
 
     def _prep_reduce_scatter(
         self,
-        ipTensor: list[torch.Tensor],
         curComm: commsArgs,
         commsParams: commsParamsHolderBase,
         numElementsIn: int,
@@ -1069,7 +1073,6 @@ class paramCommsBench(ABC):
 
     def _prep_reduce_scatter_base(
         self,
-        ipTensor: torch.Tensor,
         curComm: commsArgs,
         commsParams: commsParamsHolderBase,
         numElementsIn: int,
@@ -1107,7 +1110,6 @@ class paramCommsBench(ABC):
 
     def _prep_pt2pt(
         self,
-        ipTensor: torch.Tensor,
         curComm: commsArgs,
         commsParams: commsParamsHolderBase,
         numElementsIn: int,
@@ -1119,8 +1121,23 @@ class paramCommsBench(ABC):
         allocate: bool = True,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         # pt2pt or out-of-place collectives
+        ipTensor = torch.Tensor()
         opTensor = torch.Tensor()
         if allocate:
+            if commsParams.dcheck == 1:
+                ipTensor = self.backendFuncs.alloc_ones(
+                    [numElementsIn],
+                    curDevice,
+                    commsParams.dtype,
+                    self.initVal,
+                )
+            else:
+                ipTensor = self.backendFuncs.alloc_random(
+                    [numElementsIn],
+                    curDevice,
+                    commsParams.dtype,
+                    scaleFactor,
+                )
             opTensor = self.backendFuncs.alloc_random(
                 [numElementsOut],
                 curDevice,
@@ -1212,20 +1229,7 @@ class paramCommsBench(ABC):
         # seed to generate random value; let's use a small value to avoid potential "overflow when unpacking long"
         scaleFactor = world_size
         opTensor = torch.Tensor()
-
-        if allocate:
-            if commsParams.dcheck == 1:
-                # use predictable values for data validation check
-                ipTensor = self.backendFuncs.alloc_ones(
-                    [numElementsIn], curDevice, dtype, scaleFactor=self.initVal
-                )
-            else:
-                ipTensor = self.backendFuncs.alloc_random(
-                    [numElementsIn], curDevice, dtype, scaleFactor
-                )
-        else:
-            ipTensor = torch.Tensor()
-        # TODO: consider using this dictionary to check valid keywords rather than silently defaulting
+        ipTensor = torch.Tensor()
 
         dispatchDict = {
             "all_to_allv": self._prep_all_to_allv,
@@ -1242,7 +1246,6 @@ class paramCommsBench(ABC):
         function_to_call = dispatchDict.get(commOp)
         if function_to_call is not None:
             ipTensor, opTensor = function_to_call(
-                ipTensor,
                 curComm,
                 commsParams,
                 numElementsIn,
@@ -1254,6 +1257,17 @@ class paramCommsBench(ABC):
                 allocate,
             )
         else:
+            if allocate:
+                if commsParams.dcheck == 1:
+                    # use predictable values for data validation check
+                    ipTensor = self.backendFuncs.alloc_ones(
+                        [numElementsIn], curDevice, dtype, scaleFactor=self.initVal
+                    )
+                else:
+                    ipTensor = self.backendFuncs.alloc_random(
+                        [numElementsIn], curDevice, dtype, scaleFactor
+                    )
+            
             # in-place case for other collectives such as allreduce, reduce, broadcast
             opTensor = ipTensor
 

@@ -164,6 +164,59 @@ class PyTorchDistBackend(BaseBackend):
         if retFlag:
             return retObj
 
+    def all_reduce_coalesced(self, collectiveArgs, retFlag=False, pair=False):
+        collectiveArgs.opTensor = collectiveArgs.ipTensor
+        # pair=True mode does not support quantization
+        if (
+            collectiveArgs.allreduce_qcomm != 32
+            and collectiveArgs.allreduce_qcomm > 4
+            and collectiveArgs.ipTensor.dtype == torch.float32
+            and not pair
+        ):
+            # note: note that quantized is a new tensor
+            # that is not collectiveArgs.ipTensor.
+            # this means when all_reduce/reduce finished
+            # quantized will hold the result instead of collectiveArgs.ipTensor
+            # this is intended because we don't want to allocate new buffers
+            # every time we call all_reduce (because if we don't, it will be float16 instead of float32).
+            # That also means we can't use the output of  quantized all_reduce's for anything other than
+            # benchmarking purpose.
+            with paramProfile(
+                timer=collectiveArgs.quant_time,
+                description="# PARAM: Allreduce quantization #",
+            ):
+                quantized = _downcast(
+                    collectiveArgs.ipTensor, collectiveArgs.allreduce_qcomm
+                )
+        else:
+            quantized = (
+                collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair
+            )
+        if self.use_ext_dist:
+            raise NotImplementedError("all_reduce_coalesced is not implemented when use_ext_dist is true")
+        else:
+            retObj = dist.allreduce_coalesced(
+                quantized,
+                op=collectiveArgs.op,
+                group=collectiveArgs.group,
+                async_op=collectiveArgs.asyncOp,
+            )  # synchronicity is maintained in runColl
+        if (id(quantized) != id(collectiveArgs.ipTensor)) and not pair:
+            if collectiveArgs.asyncOp:
+                retObj = retObj.get_future().then(_dequantize)
+            else:
+                with paramProfile(
+                    timer=collectiveArgs.dequant_time,
+                    description="# PARAM: Allreduce de-quantization #",
+                ):
+                    retObj = _dequantize(quantized)
+
+        if collectiveArgs.asyncOp:
+            collectiveArgs.waitObj.append(retObj)
+
+        if retFlag:
+            return retObj
+        
     def reduce(self, collectiveArgs, retFlag=False, pair=False):
         # pair=True mode does not support quantization
         if collectiveArgs.reduce_qcomm != 32 and not pair:
@@ -349,6 +402,31 @@ class PyTorchDistBackend(BaseBackend):
         if retFlag:
             return retObj
 
+    def allgather_into_tensor_coalesced(self, collectiveArgs, retFlag=False, pair=False):
+        if self.use_ext_dist:
+            raise NotImplementedError("allgather_into_tensor_coalesced is not implemented when use_ext_dist is true")
+        else:
+            retObj = dist.allgather_into_tensor_coalesced(
+                tensor_list=(
+                    collectiveArgs.opTensor
+                    if not pair
+                    else collectiveArgs.opTensor_pair
+                ),
+                tensor=(
+                    collectiveArgs.ipTensor
+                    if not pair
+                    else collectiveArgs.ipTensor_pair
+                ),
+                group=collectiveArgs.group,
+                async_op=collectiveArgs.asyncOp,
+            )  # synchronicity is maintained in runColl
+
+        if collectiveArgs.asyncOp:
+            collectiveArgs.waitObj.append(retObj)
+
+        if retFlag:
+            return retObj
+        
     def gather(self, collectiveArgs, retFlag=False, pair=False):
         if pair:
             ipTensors = collectiveArgs.ipTensor_pair
@@ -453,6 +531,28 @@ class PyTorchDistBackend(BaseBackend):
         if retFlag:
             return retObj
 
+    def reduce_scatter_tensor_coalesced(self, collectiveArgs, retFlag=False, pair=False):
+        if pair:
+            ipTensor = collectiveArgs.ipTensor_pair
+            opTensor = collectiveArgs.opTensor_pair
+        else:
+            ipTensor = collectiveArgs.ipTensor
+            opTensor = collectiveArgs.opTensor
+
+        retObj = dist.reduce_scatter_tensor_coalesced(
+            output=opTensor,
+            input=ipTensor,
+            op=collectiveArgs.op,
+            group=self.get_collective_group(collectiveArgs),
+            async_op=collectiveArgs.asyncOp,
+        )  # synchronicity is maintained in runColl
+
+        if collectiveArgs.asyncOp:
+            collectiveArgs.waitObj.append(retObj)
+
+        if retFlag:
+            return retObj
+        
     def all_gather_base(self, collectiveArgs, retFlag=False, pair=False):
         if pair:
             ipTensor = collectiveArgs.ipTensor_pair

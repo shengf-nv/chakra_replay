@@ -125,7 +125,7 @@ class TensorAllcationMode(Enum):
 class ReplayMode(Enum):
     """
     Enum to define the replay mode: 
-        FULL: replay both compte and comms ops
+        FULL: replay both compute and comms ops
         COMP: replay compute ops only
         COMM: replay comms ops only
     """
@@ -274,7 +274,6 @@ class ExgrReplayManager:
         else:
             print(f"Invalid replay mode: {self.replay_mode}.")
             sys.exit(-1)
-        logger.info(f"SHENGFU replay mode = {self.args.replay_mode}")
         self.generator = self.args.generator
         self.dump = self.args.dump
         self.dump_path = self.args.dump_path

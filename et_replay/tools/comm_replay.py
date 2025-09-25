@@ -944,6 +944,8 @@ class commsTraceReplayBench(paramCommsBench):
                             f"[Data accuracy]: Rank: {self.backendFuncs.get_global_rank()}: Data accuracy check not passed for {curComm.id} on ReplayIteration: {self.replayIter} "
                         )
 
+                self.collectiveArgs.ipTensor = None
+                self.collectiveArgs.opTensor = None
             else:
                 # skip not supported ops
                 logger.warn(

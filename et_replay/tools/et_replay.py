@@ -95,12 +95,14 @@ class CommsReplayManager(commsTraceReplayBench):  # pyre-ignore[13]:
             "reduce_scatter",
         ]
 
+        assert ip_tensor is not None, f"ip_tensor is None for comm id: {curComm.id}"
         if len(ip_tensor) > 0:
             if paramToCommName(curComm.comms) not in need_extract_ops:
                 ip_tensor = ip_tensor[0]
             else:
                 ip_tensor = ip_tensor[0][0]
 
+        assert op_tensor is not None, f"op_tensor is None for comm id: {curComm.id}"
         if len(op_tensor) > 0:
             if paramToCommName(curComm.comms) not in need_extract_ops:
                 op_tensor = op_tensor[0]
@@ -769,10 +771,8 @@ class ExgrReplayManager:
                             self.tensor_registry_permanent[replay_t_id] = tensor
                         else:
                             self.tensor_registry[replay_t_id] = tensor
-
-                except KeyError:
-                    if data_type != "Tensor(nullptr (uninitialized))":
-                        logger.info(f"KeyError: {node.id}, {t_id}, {data_type}")
+                except Exception as e:
+                    logger.info(f"SHENGFU node id = {node.id} is_input = {is_input} {e}")
                     if self.tensor_allocate_mode == TensorAllcationMode.PRE_ALLOCATE:
                         self.tensor_registry_permanent[replay_t_id] = None
                     else:
@@ -1056,14 +1056,23 @@ class ExgrReplayManager:
     def free_device_memory(self, force: bool = False):
         free_memory = force
         allocated_memory = torch.cuda.memory_allocated(self.device) / 1024 / 1024 / 1024
+        logger.info(f"allocated_memory = {allocated_memory} available_emmory = {self.available_memory} used: {allocated_memory / self.available_memory:.2%}")
         if allocated_memory / self.available_memory > self.args.device_memory_threshold:
             free_memory = True
 
         if free_memory:
+            self.commsBench.backendFuncs.complete_accel_ops(self.commsBench.collectiveArgs)
             for _, v in self.tensor_storage_map.items():
                 if len(v) > 1:
-                    v[1] = {}
-            self.tensor_registry = {}
+                    v[1].clear()
+            self.tensor_registry.clear()
+            gc.collect()
+            all_tensors = [obj for obj in gc.get_objects() if isinstance(obj, torch.Tensor)]
+            logger.info(f"free_device_memory Number of allocated tensors: {len(all_tensors)}")
+            for t in all_tensors:
+                logger.info(f"{t.shape}")
+            logger.info(f"SHENGFU available memory allocated memory = {self.available_memory} GB")
+            logger.info(f"SHENGFU freed memory allocated memory = {torch.cuda.memory_allocated(self.device) / 1024 / 1024 / 1024} GB")
 
     def run_op(self, node, iter, cnt):  # noqa: C901
         if (
@@ -1094,6 +1103,11 @@ class ExgrReplayManager:
                 ):
                     del self.tensor_registry[replay_t_id]
                 self.free_tensor_in_storage(t_id[1], node.id)
+
+            # all_tensors = [obj for obj in gc.get_objects() if isinstance(obj, torch.Tensor)]
+            # logger.info(f"Number of allocated tensors: {len(all_tensors)} after free tensor")
+            # for t in all_tensors:
+            #     logger.info(f"{t.shape}")
             return True, ""
         else:
             # This is a comms node and it is handled by commsBench.replaySingle
@@ -1234,6 +1248,9 @@ class ExgrReplayManager:
         self.commsBench.initBackend(bootstrap_info, self.commsParams)
         self.commsBench.initBench(self.commsParams, comms_args)
         self.commsBench.replayInit(self.commsParams)
+
+        #DEBUG
+        # self.commsBench.is_blocking = True
 
     def remove_op_with_runtime_error(self):
         for cnt, node in enumerate(self.sorted_nodes):

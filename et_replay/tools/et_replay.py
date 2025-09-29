@@ -1056,7 +1056,14 @@ class ExgrReplayManager:
     def free_device_memory(self, force: bool = False):
         free_memory = force
         allocated_memory = torch.cuda.memory_allocated(self.device) / 1024 / 1024 / 1024
-        logger.info(f"allocated_memory = {allocated_memory} available_emmory = {self.available_memory} used: {allocated_memory / self.available_memory:.2%}")
+        reserved_memory = torch.cuda.memory_reserved(self.device) / 1024 / 1024 / 1024
+        logger.info(
+            f"allocated_memory = {allocated_memory:.2f}, "
+            f"reserved_memory  = {reserved_memory:.2f}, "
+            f"available_memory = {self.available_memory:.2f}, "
+            f"used = {allocated_memory / self.available_memory:.2%}"
+        )
+
         if allocated_memory / self.available_memory > self.args.device_memory_threshold:
             free_memory = True
 
@@ -1082,7 +1089,7 @@ class ExgrReplayManager:
         ):
             self.free_device_memory()
         
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         if isinstance(node, commsArgs):
             if self.debug and iter >= self.numWarmupIters:
                 start_ns = time.time_ns()

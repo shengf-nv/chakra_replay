@@ -731,6 +731,7 @@ class commsParamsHolder(commsParamsHolderBase):
 
         self.size_start_profiler = args.size_start_profiler
 
+        self.asyncOp = True
 
 class paramCommsBench(ABC):
     """Abstract class for any param comms benchmark."""

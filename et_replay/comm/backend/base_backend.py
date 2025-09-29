@@ -106,7 +106,7 @@ class collectiveArgsHolder:
         self.ipTensor = []
         self.opTensor = []
         self.srcOrDst = -1
-        self.asyncOp = -1
+        self.asyncOp = True
         self.dataSize = 0
         self.numElements = 0
         self.waitObj = []

@@ -892,6 +892,9 @@ class commsTraceReplayBench(paramCommsBench):
                 else:
                     self.collectiveArgs.wait_obj_key = None
 
+                self.collectiveArgs.asyncOp = curComm.asyncOp or self.is_blocking
+                logger.info(f"SHENGFU id = {curComm.id} asyncop = {self.collectiveArgs.asyncOp}")
+
                 # handle point-to-point separately
                 if collName in supportedP2pOps:
                     self.collectiveArgs.src_rank = curComm.src_rank
@@ -948,14 +951,14 @@ class commsTraceReplayBench(paramCommsBench):
                 self.collectiveArgs.opTensor = None
             else:
                 # skip not supported ops
-                logger.warn(
+                logger.warning(
                     f"Unsupported collective name: {collName}. Skipping replaying the collective"
                 )
                 retObj = None
 
             # if blocking, post outstanding ops and wait for them to complete. if nonblocking, just post op
-            if self.is_blocking:
-                self.backendFuncs.complete_accel_ops(self.collectiveArgs)
+            # if self.is_blocking:
+            #    self.backendFuncs.complete_accel_ops(self.collectiveArgs)
 
             # if nonblocking, then store the pair {(pg_id, reqID, isP2P), future} so that we can wait on it later
             # check if req id is recorded in trace for backwards compatibility
@@ -963,6 +966,7 @@ class commsTraceReplayBench(paramCommsBench):
                 not self.is_blocking
                 and collName != "wait"
                 and self.collectiveArgs.wait_obj_key is not None
+                and self.collectiveArgs.asyncOp is True
             ):
                 self.collectiveArgs.waitObjIds[self.collectiveArgs.wait_obj_key] = (
                     retObj
@@ -1610,7 +1614,7 @@ class commsTraceReplayBench(paramCommsBench):
         self.collectiveArgs.srcOrDst = 0
         # FIXME: assuming it's always sum for reduce/allreduce operations
         self.collectiveArgs.op = self.backendFuncs.get_reduce_op("sum")
-        self.collectiveArgs.asyncOp = not self.is_blocking
+        self.collectiveArgs.asyncOp = True
         self.collectiveArgs.ipTensor = None
         self.collectiveArgs.opTensor = None
         self.collectiveArgs.quant_threshold = commsParams.quant_threshold

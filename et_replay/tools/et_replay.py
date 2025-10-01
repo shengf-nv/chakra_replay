@@ -1267,7 +1267,7 @@ class ExgrReplayManager:
         self.commsBench.replayInit(self.commsParams)
 
         #DEBUG
-        # self.commsBench.is_blocking = True
+        self.commsBench.is_blocking = True
 
     def remove_op_with_runtime_error(self):
         for cnt, node in enumerate(self.sorted_nodes):

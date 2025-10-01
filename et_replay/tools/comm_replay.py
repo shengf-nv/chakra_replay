@@ -1519,6 +1519,7 @@ class commsTraceReplayBench(paramCommsBench):
         self.initTraceStat()
         # only setup and perform collectives if not dry run mode
         if not self.is_dry_run:
+            self.backendFuncs.sayHello()
             self.setBench(commsParams)
 
     def initBackend(

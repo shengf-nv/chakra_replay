@@ -104,7 +104,7 @@ class PyTorchDistBackend(BaseBackend):
         if global_rank == 0:
             for rank in range(0, world_size):
                 rank_hello_msg = self.store_get(f"hello_msg_{rank}").decode()
-                print(f"Hello from Rank {rank}: {rank_hello_msg}")
+                logger.info(f"Hello from Rank {rank}: {rank_hello_msg}")
 
     def store_get(self, key):
         return self.tcp_store.get(key)

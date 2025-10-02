@@ -1606,7 +1606,8 @@ class ExgrReplayManager:
 
         if self.replay_mode != ReplayMode.COMP:
             self.commsBench.reportBenchTime()
-            writeCommDetails(self.commsBench.traceWithPerf, folder=os.path.join(self.out_path, "replayed_trace"), rank=global_rank)
+            if self.out_path is not None:
+                writeCommDetails(self.commsBench.traceWithPerf, folder=os.path.join(self.out_path, "replayed_trace"), rank=global_rank)
 
         return benchmark_result
 

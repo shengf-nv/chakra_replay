@@ -1524,6 +1524,13 @@ class ExgrReplayManager:
                 if global_rank == 0:
                     profiler_trace_analysis.summarize_profiler_trace(
                         os.path.join(self.out_path, "profiler_trace"), global_rank, self.out_path)
+        else:
+            success = True
+            for iter in range(self.numWarmupIters + self.numIters):
+                if not run_iter(iter):
+                    success = False
+                    break
+            benchmark_result["execution finished"] = success
 
         if not benchmark_result["execution finished"]:
             return benchmark_result

@@ -284,7 +284,7 @@ class Node:
         tensors = []
         for type, input, shape in param_list:  # TBR: avoid using python key words
             if type.startswith("Tensor"):
-                tensors.append((type, tuple(input), shape))
+                tensors.append((type.removeprefix("Tensor(").rstrip(")"), tuple(input), shape))
             # GenericList could have tensor elements
             if type.startswith("GenericList"):
                 elem_type = type[len("GenericList[") : -1].split(",")

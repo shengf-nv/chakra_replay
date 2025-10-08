@@ -717,9 +717,6 @@ class ExgrReplayManager:
                 replay_t_id = self.tensors_mapping[(node.id, t_id, True)]
             else:
                 replay_t_id = self.tensors_mapping[(node.id, t_id, is_input)]
-
-            if replay_t_id == 416:
-                breakpoint()
                 
             if t_id not in self.input_tensor_ids:
                 continue
@@ -733,9 +730,7 @@ class ExgrReplayManager:
 
             if not found_tensor:
                 try:
-                    dtype, _ = TORCH_DTYPES_RNG[
-                        data_type.removeprefix("Tensor(").rstrip(")")
-                    ]
+                    dtype, _ = TORCH_DTYPES_RNG[data_type]
 
                     strides = None
                     if node.input_strides is not None:
@@ -945,8 +940,6 @@ class ExgrReplayManager:
             self.tensor_storage_map[storage_id][1] = {}
 
     def get_data(self, node, is_input, is_comm_node):
-        if node.id == 2200:
-            breakpoint()
         try:
             if self.tensor_allocate_mode == TensorAllcationMode.LAZY_ALLOCATE:
                 self.allocate_node_tensors(node, is_input, is_comm_node)
@@ -1154,8 +1147,6 @@ class ExgrReplayManager:
                     else:
                         func(*inputs)
                 else:
-                    if node.id == 2200:
-                        breakpoint()
                     if output_count == 1:
                         tmp = (func(*inputs),)
                     else:
@@ -1186,7 +1177,7 @@ class ExgrReplayManager:
                         del self.tensor_registry[replay_t_id]
                     self.free_tensor_in_storage(t_id[1], node.id)
 
-                for (_, t_id, _), output in zip(get_output_tensors(node), outputs):
+                for (trace_dtype, t_id, _), output in zip(get_output_tensors(node), outputs):
                     if self.tensor_with_device:
                         t_id = tuple(list(t_id)[:5])
 
@@ -1197,6 +1188,15 @@ class ExgrReplayManager:
                             < self.replay_tensor_id_to_last_node_id_map[replay_t_id]
                             and replay_t_id not in self.tensor_registry
                         ):
+                            # The application may use some options to change the default behavior 
+                            # of PyTorch data type promotion policy, such as autocast.
+                            # For example, the output tensor of the multiplication of fp32 tensor 
+                            # and fp64 tensor, by the default, is fp64, but with autocast, it could be fp32.
+                            # Chakra trace does not catch these options, so check the data type
+                            # of the output tensor to make sure it is consistent the one in the trace
+                            dtype, _ = TORCH_DTYPES_RNG[trace_dtype]
+                            if output.dtype != dtype:
+                                output = output.to(dtype)
                             self.tensor_registry[replay_t_id] = output
                         else:
                             del output

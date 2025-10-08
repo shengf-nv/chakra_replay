@@ -147,7 +147,6 @@ class ExgrReplayManager:
         self.cuda_id = 0
         self.debug = False
         self.replay_mode: ReplayMode = ReplayMode.FULL
-        self.generator = False
         self.trace_file = ""
         self.dump = False
         self.dump_path = ""
@@ -278,7 +277,6 @@ class ExgrReplayManager:
         else:
             print(f"Invalid replay mode: {self.replay_mode}.")
             sys.exit(-1)
-        self.generator = self.args.generator
         self.dump = self.args.dump
         self.dump_path = self.args.dump_path
         self.out_path = self.args.output_path
@@ -489,7 +487,7 @@ class ExgrReplayManager:
                 self.profile_step_node_ids.append(node.id)
             if node.type == NodeType.OPERATOR:
                 if ((self.replay_mode == ReplayMode.FULL) or
-                    (self.replay_mode == ReplayMode.COMP and node.name != "record_param_comms") or 
+                    (self.replay_mode == ReplayMode.COMP and (node.name != "record_param_comms" and not node.name.startswith("triton_"))) or 
                     (self.replay_mode == ReplayMode.COMM and node.name == "record_param_comms")):
                     if not self.is_skipped(node):
                         self.sorted_nodes.append(node)
@@ -720,6 +718,9 @@ class ExgrReplayManager:
             else:
                 replay_t_id = self.tensors_mapping[(node.id, t_id, is_input)]
 
+            if replay_t_id == 416:
+                breakpoint()
+                
             if t_id not in self.input_tensor_ids:
                 continue
             found_tensor = False
@@ -729,6 +730,7 @@ class ExgrReplayManager:
             else:
                 if replay_t_id in self.tensor_registry.keys():
                     found_tensor = True
+
             if not found_tensor:
                 try:
                     dtype, _ = TORCH_DTYPES_RNG[
@@ -943,6 +945,8 @@ class ExgrReplayManager:
             self.tensor_storage_map[storage_id][1] = {}
 
     def get_data(self, node, is_input, is_comm_node):
+        if node.id == 2200:
+            breakpoint()
         try:
             if self.tensor_allocate_mode == TensorAllcationMode.LAZY_ALLOCATE:
                 self.allocate_node_tensors(node, is_input, is_comm_node)
@@ -1150,6 +1154,8 @@ class ExgrReplayManager:
                     else:
                         func(*inputs)
                 else:
+                    if node.id == 2200:
+                        breakpoint()
                     if output_count == 1:
                         tmp = (func(*inputs),)
                     else:
@@ -1299,7 +1305,7 @@ class ExgrReplayManager:
             self.add_skipped_nodes(node, msg)
 
     def preprocess_graph(self):
-        if self.replay_mode != ReplayMode.COMP and not self.generator:
+        if self.replay_mode != ReplayMode.COMP:
             self.init_comms()
 
         nodes = self.et.get_nodes(clean=True)
@@ -1331,9 +1337,7 @@ class ExgrReplayManager:
             f"Tensor count with same identifier but different shapes:{tensor_with_multiple_shape_count}, total tensor: {len(self.tensor_shapes)}"
         )
 
-        if self.generator:
-            self.generate_code()
-        elif self.tensor_allocate_mode == TensorAllcationMode.PRE_ALLOCATE:
+        if self.tensor_allocate_mode == TensorAllcationMode.PRE_ALLOCATE:
             self.allocate_tensors()
 
     def benchTime(self):
@@ -1342,8 +1346,6 @@ class ExgrReplayManager:
 
         start_time = datetime.now()
         self.preprocess_graph()
-        if self.generator:
-            return 0
 
         if self.args.update_replay_config:
             if os.environ.get("CUDA_LAUNCH_BLOCKING", "0") != "1":
@@ -1637,13 +1639,6 @@ class ExgrReplayManager:
             action="store_true",
             default=False,
             help="Enable debug mode.",
-        )
-        parser.add_argument(
-            "-g",
-            "--generator",
-            action="store_true",
-            default=False,
-            help="Enable code generator mode.",
         )
         parser.add_argument(
             "--dump",

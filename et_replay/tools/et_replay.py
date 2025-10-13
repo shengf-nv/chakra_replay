@@ -485,9 +485,12 @@ class ExgrReplayManager:
         def dfs_traverse(node):
             if self.profile_step_label in node.name:
                 self.profile_step_node_ids.append(node.id)
+            # ignore triton kernel for now
+            if node.name.startswith("triton_"):
+                return
             if node.type == NodeType.OPERATOR:
                 if ((self.replay_mode == ReplayMode.FULL) or
-                    (self.replay_mode == ReplayMode.COMP and (node.name != "record_param_comms" and not node.name.startswith("triton_"))) or 
+                    (self.replay_mode == ReplayMode.COMP and node.name != "record_param_comms") or 
                     (self.replay_mode == ReplayMode.COMM and node.name == "record_param_comms")):
                     if not self.is_skipped(node):
                         self.sorted_nodes.append(node)

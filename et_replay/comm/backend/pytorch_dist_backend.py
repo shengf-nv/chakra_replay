@@ -103,14 +103,18 @@ class PyTorchDistBackend(BaseBackend):
         self.store_set(f"hello_msg_{global_rank}", hello_msg)
         if global_rank == 0:
             for rank in range(0, world_size):
+                self.store_wait(f"hello_msg_{rank}")
                 rank_hello_msg = self.store_get(f"hello_msg_{rank}").decode()
-                print(f"Hello from Rank {rank}: {rank_hello_msg}")
+                logger.info(f"Hello from Rank {rank}: {rank_hello_msg}")
 
     def store_get(self, key):
         return self.tcp_store.get(key)
 
     def store_set(self, key, val):
         self.tcp_store.set(key, val)
+
+    def store_wait(self, key):
+        return self.tcp_store.wait([key])
 
     # Collectives
     def all_reduce(self, collectiveArgs, retFlag=False, pair=False):
@@ -1177,7 +1181,7 @@ class PyTorchDistBackend(BaseBackend):
             device_index = torch.cuda.current_device()
             device = torch.device("cuda", device_index)
             dummy = torch.zeros(1, device=device)
-            dist.all_reduce(dummy, op=dist.ReduceOp.SUM, async_op=True)
+            dist.all_reduce(dummy, op=dist.ReduceOp.SUM, async_op=False)
             if saved_env is not None:
                 os.environ["NCCL_COLLNET_ENABLE"] = saved_env
 

@@ -1039,7 +1039,7 @@ class PyTorchDistBackend(BaseBackend):
                 ranks=group_ranks, backend=backend
             )
         else:
-            env_enable_sharp = os.getenv("ENABLE_SHARP", '0')
+            env_enable_sharp = os.getenv("CHAKRA_ENABLE_SHARP", '0')
             if env_enable_sharp == '1':
                 if pg_desc == "DATA_PARALLEL_GROUP_WITH_CP_AG":
                     logger.info(f"SHENGFU create PG for all gather")

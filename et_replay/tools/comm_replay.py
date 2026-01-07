@@ -1570,7 +1570,7 @@ class commsTraceReplayBench(paramCommsBench):
             bootstrap_info.master_port,
             backend=commsParams.backend,
         )
-        self.backendFuncs.sayHello()
+        self.backendFuncs.barrier_all_ranks()
 
     def setBench(
         self,

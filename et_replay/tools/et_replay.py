@@ -1535,7 +1535,7 @@ class ExgrReplayManager:
                 profiler_trace_analysis.preprocess_profiler_trace(
                     os.path.join(self.out_path, "profiler_trace"), global_rank)
                 # sync all ranks to make sure all ranks finished preprocessing
-                self.commsBench.backendFuncs.sayHello()
+                self.commsBench.backendFuncs.barrier_all_ranks()
                 if global_rank == 0:
                     profiler_trace_analysis.summarize_profiler_trace(
                         os.path.join(self.out_path, "profiler_trace"), world_size, self.out_path)

@@ -1039,35 +1039,60 @@ class PyTorchDistBackend(BaseBackend):
                 ranks=group_ranks, backend=backend
             )
         else:
-            env_enable_sharp = os.getenv("NCCL_COLLNET_ENABLE", 0)
-            logger.info(f"env_enable_sharp={env_enable_sharp} pg_desc={pg_desc}")
+            env_enable_sharp = os.getenv("ENABLE_SHARP", '0')
             if env_enable_sharp == '1':
                 logger.info(f"inside enable sharp")
-                if pg_desc == "DATA_PARALLEL_GROUP_WITH_CP" or pg_desc == "EXPERT_DATA_PARALLEL_GROUP":
+                if pg_desc == "DATA_PARALLEL_GROUP_WITH_CP_AG":
                     logger.info(f"SHENGFU create PG for all gather")
-                    sharp_env_ENABLE_MCAST   = os.getenv("SHARP_COLL_ENABLE_MCAST")
-                    sharp_env_JOB_REQUEST_MC = os.getenv("SHARP_COLL_JOB_REQUEST_MC")
-                    sharp_env_ENABLE_SAT     = os.getenv("SHARP_COLL_ENABLE_SAT")
-                    sharp_env_ALLGATHER_ALG  = os.getenv("SHARP_COLL_ALLGATHER_ALG")
-                    sharp_env_NCCL_ALGO      = os.getenv("NCCL_ALGO")
 
-                    os.environ["SHARP_COLL_ENABLE_MCAST"]   = "1"
-                    os.environ["SHARP_COLL_JOB_REQUEST_MC"] = "1"
-                    os.environ["SHARP_COLL_ENABLE_SAT"]     = "0"
-                    os.environ["SHARP_COLL_ALLGATHER_ALG" ] = "5"
-                    os.environ["NCCL_ALGO"]                 ="collnetdirect" 
+                    sharp_envs = {
+                        "NCCL_COLLNET_ENABLE"                          : os.getenv("NCCL_COLLNET_ENABLE"),
+                        "SHARP_COLL_ENABLE_MCAST"                      : os.getenv("SHARP_COLL_ENABLE_MCAST"),
+                        "SHARP_COLL_JOB_REQUEST_MC"                    : os.getenv("SHARP_COLL_JOB_REQUEST_MC"),
+                        "SHARP_COLL_ENABLE_SAT"                        : os.getenv("SHARP_COLL_ENABLE_SAT"),
+                        "SHARP_COLL_ALLGATHER_ALG"                     : os.getenv("SHARP_COLL_ALLGATHER_ALG"),
+                        "SHARP_COLL_ALLGATHER_OFFSET_FALLBACK_TO_ALG4" : os.getenv("SHARP_COLL_ALLGATHER_OFFSET_FALLBACK_TO_ALG4"),
+                        "SHARP_COLL_MCAST_ALLGATHER_CHUNK_SIZE"        : os.getenv("SHARP_COLL_MCAST_ALLGATHER_CHUNK_SIZE"),
+                        "SHARP_COLL_MCAST_ALLGATHER_NUM_POSTS"         : os.getenv("SHARP_COLL_MCAST_ALLGATHER_NUM_POSTS"),
+                        "SHARP_COLL_MCAST_ALLGATHER_CHUNK_PROGRESS_MODE" : os.getenv("SHARP_COLL_MCAST_ALLGATHER_CHUNK_PROGRESS_MODE"),
+                        "SHARP_COLL_NUM_MCAST_TREES"                   : os.getenv("SHARP_COLL_NUM_MCAST_TREES"),
+                        "SHARP_COLL_USE_DEVX"                          : os.getenv("SHARP_COLL_USE_DEVX"),
+                        "SHARP_COLL_PLANE_MASK"                        : os.getenv("SHARP_COLL_PLANE_MASK"),
+                        "NCCL_ALGO"                                    : os.getenv("NCCL_ALGO"),
+                    }
 
-                elif pg_desc == "DATA_PARALLEL_GROUP_WITH_CP_RS" or "EXPERT_DATA_PARALLEL_GROUP_RS":
+                    os.environ["NCCL_COLLNET_ENABLE"] = "1"
+                    os.environ["SHARP_COLL_ENABLE_MCAST"] ="1"
+                    os.environ["SHARP_COLL_JOB_REQUEST_MC"] ="1"
+                    os.environ["SHARP_COLL_ENABLE_SAT"]     ="0"
+                    os.environ["SHARP_COLL_ALLGATHER_ALG" ] ="5"
+                    os.environ["SHARP_COLL_ALLGATHER_OFFSET_FALLBACK_TO_ALG4"]="1"
+                    os.environ["SHARP_COLL_MCAST_ALLGATHER_CHUNK_SIZE"] = "131072"
+                    os.environ["SHARP_COLL_MCAST_ALLGATHER_NUM_POSTS"] = "1"
+                    os.environ["SHARP_COLL_MCAST_ALLGATHER_CHUNK_PROGRESS_MODE"] = "0"
+                    os.environ["SHARP_COLL_NUM_MCAST_TREES" ] ="1"
+                    os.environ["SHARP_COLL_USE_DEVX"]="0" 
+                    os.environ["SHARP_COLL_PLANE_MASK"]="15"
+                    os.environ["NCCL_ALGO"]="collnetdirect,ring"
+
+                elif pg_desc == "DATA_PARALLEL_GROUP_WITH_CP":
                     # This PG for reduce scatter
                     logger.info(f"SHENGFU create PG for reduce scatter")
-                    sharp_env_ENABLE_MCAST   = os.getenv("SHARP_COLL_ENABLE_MCAST")
-                    sharp_env_JOB_REQUEST_MC = os.getenv("SHARP_COLL_JOB_REQUEST_MC")
-                    sharp_env_ENABLE_SAT     = os.getenv("SHARP_COLL_ENABLE_SAT")
-                    sharp_env_NCCL_ALGO      = os.getenv("NCCL_ALGO")
-                    os.environ["SHARP_COLL_ENABLE_MCAST"]   = "0"
-                    os.environ["SHARP_COLL_JOB_REQUEST_MC"] = "0"
-                    os.environ["SHARP_COLL_ENABLE_SAT"]     = "1"
-                    os.environ["NCCL_ALGO"]                 = "collnetdirect" 
+                    sharp_envs = {
+                        "NCCL_COLLNET_ENABLE"                          : os.getenv("NCCL_COLLNET_ENABLE"),
+                        "SHARP_COLL_ENABLE_MCAST"                      : os.getenv("SHARP_COLL_ENABLE_MCAST"),
+                        "SHARP_COLL_JOB_REQUEST_MC"                    : os.getenv("SHARP_COLL_JOB_REQUEST_MC"),
+                        "SHARP_COLL_ENABLE_SAT"                        : os.getenv("SHARP_COLL_ENABLE_SAT"),
+                        "SHARP_COLL_ALLGATHER_ALG"                     : os.getenv("SHARP_COLL_ALLGATHER_ALG"),
+                        "SHARP_COLL_REDUCE_SCATTER_FRAG_SIZE"          : os.getenv("SHARP_COLL_REDUCE_SCATTER_FRAG_SIZE"),
+                    }
+
+                    os.environ["NCCL_COLLNET_ENABLE"] = "1"
+                    os.environ["SHARP_COLL_ENABLE_MCAST"] ="0"
+                    os.environ["SHARP_COLL_JOB_REQUEST_MC"] ="0"
+                    os.environ["SHARP_COLL_ENABLE_SAT"]     ="1"
+                    os.environ["SHARP_COLL_ALLGATHER_ALG" ] ="1"
+                    os.environ["SHARP_COLL_REDUCE_SCATTER_FRAG_SIZE" ] ="256K"
                     
             
             pg = dist.new_group(ranks=group_ranks, backend=backend, group_desc=pg_desc)
@@ -1076,51 +1101,39 @@ class PyTorchDistBackend(BaseBackend):
                 device_index = torch.cuda.current_device()
                 device = torch.device("cuda", device_index)
                 world_size = self.bootstrap_info.world_size
-                if pg_desc == "DATA_PARALLEL_GROUP_WITH_CP" or pg_desc == "EXPERT_DATA_PARALLEL_GROUP":
+                if pg_desc == "DATA_PARALLEL_GROUP_WITH_CP_AG":
                     # This PG for all gather
 
                     # call a dummy all gather to guarantee PG is created
-                    dummy_input_ag  = torch.ones(1, device=device)
+                    dummy_input_ag  = torch.ones(1, device=device, dtype=torch.float32)
                     dummy_output_ag = [torch.empty_like(dummy_input_ag) for _ in range(world_size)]
-                    dist.all_gather(
-                        dummy_output_ag,
-                        dummy_input_ag,
-                        group=pg,
-                        async_op=True
-                    ) 
+                    torch.distributed.all_gather(
+                            dummy_output_ag,
+                            dummy_input_ag,
+                            group=pg,
+                            async_op=False
+                        ) 
 
-                    if sharp_env_ENABLE_MCAST is not None:
-                        os.environ["SHARP_COLL_ENABLE_MCAST"]   = sharp_env_ENABLE_MCAST
-                    if sharp_env_JOB_REQUEST_MC is not None:
-                        os.environ["SHARP_COLL_JOB_REQUEST_MC"] = sharp_env_JOB_REQUEST_MC
-                    if sharp_env_ENABLE_SAT is not None:
-                        os.environ["SHARP_COLL_ENABLE_SAT"]     = sharp_env_ENABLE_SAT
-                    if sharp_env_ALLGATHER_ALG is not None:
-                        os.environ["SHARP_COLL_ALLGATHER_ALG"]  = sharp_env_ALLGATHER_ALG    
-                    if sharp_env_NCCL_ALGO is not None:
-                        os.environ["NCCL_ALGO"]                 = sharp_env_NCCL_ALGO
-                elif pg_desc == "DATA_PARALLEL_GROUP_WITH_CP_RS" or "EXPERT_DATA_PARALLEL_GROUP_RS":
+                    for key, value in sharp_envs.items():
+                        if value is not None:
+                            os.environ[key]   = value
+                elif pg_desc == "DATA_PARALLEL_GROUP_WITH_CP":
                     # This PG for reduce scatter
 
                     # call a dummy reduce scatter to guarantee PG is created
-                    dummy_input_rs = list(torch.ones(world_size, device=device).chunk(world_size))
+                    dummy_input_rs = list(torch.ones(world_size, device=device, dtype=torch.float32).chunk(world_size))
                     dummy_output_rs = torch.empty_like(dummy_input_rs[0])
-                    dist.reduce_scatter(
-                        output=dummy_output_rs,
-                        input_list=dummy_input_rs,
-                        group=pg,
-                        op=dist.ReduceOp.SUM,
-                        async_op=True
-                    ) 
+                    torch.distributed.reduce_scatter(
+                            output=dummy_output_rs,
+                            input_list=dummy_input_rs,
+                            group=pg,
+                            op=torch.distributed.ReduceOp.SUM,
+                            async_op=False
+                        )
 
-                    if sharp_env_ENABLE_MCAST is not None:
-                        os.environ["SHARP_COLL_ENABLE_MCAST"]   = sharp_env_ENABLE_MCAST
-                    if sharp_env_JOB_REQUEST_MC is not None:
-                        os.environ["SHARP_COLL_JOB_REQUEST_MC"] = sharp_env_JOB_REQUEST_MC
-                    if sharp_env_ENABLE_SAT is not None:
-                        os.environ["SHARP_COLL_ENABLE_SAT"]     = sharp_env_ENABLE_SAT
-                    if sharp_env_NCCL_ALGO is not None:
-                        os.environ["NCCL_ALGO"]                 = sharp_env_NCCL_ALGO
+                    for key, value in sharp_envs.items():
+                        if value is not None:
+                            os.environ[key]   = value
                     
             return pg if pg is not dist.GroupMember.NON_GROUP_MEMBER else None
 

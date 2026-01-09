@@ -22,6 +22,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn as nn
+import nccl_allocator
 
 from torch._C._distributed_c10d import (
     AllgatherOptions,
@@ -52,6 +53,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+NCCL_MEMORY_POOL = None
 
 def _downcast(input, bitwidth):
     if bitwidth == 16:
@@ -1279,3 +1281,36 @@ class PyTorchDistBackend(BaseBackend):
         if dist.is_initialized():
             dist.destroy_process_group()
         pass
+
+    def get_ub_alloc_context(process_group_ids: list[int], symmetric=True):
+        ubr_groups = [self.groups[id] for id in process_group_ids]
+
+        global NCCL_MEMORY_POOL
+        if NCCL_MEMORY_POOL is None:
+            # Initialize NCCL allocator runtime if available
+            nccl_allocator.init()
+            NCCL_MEMORY_POOL = nccl_allocator.create_nccl_mem_pool(symmetric=symmetric)
+            if torch.distributed.get_rank() == 0:
+                logging.info(
+                    f"Created NCCL memory pool for UserBuffer Registration"
+                )
+            # All ranks in each group must participate in the collective to avoid deadlock.
+            for i, group in enumerate(ubr_groups):
+                torch.distributed.barrier(group=group, async_op=False)
+                if torch.distributed.get_rank() == 0:
+                    logging.info(
+                        f"Call Success with the group [{i+1}/{len(ubr_groups)}] \
+                            group.group_desc: {group.group_desc}"
+                    )
+            # Call barrier from the global communitcator group
+            torch.distributed.barrier(async_op=False)
+            if torch.distributed.get_rank() == 0:
+                logging.info(f"Call Success with the global communicator group")
+
+        mem_alloc_context = functools.partial(
+            nccl_allocator.MultiGroupMemPoolAllocator,
+            NCCL_MEMORY_POOL,
+            groups=ubr_groups,
+            symmetric=symmetric,
+        )
+        return mem_alloc_context

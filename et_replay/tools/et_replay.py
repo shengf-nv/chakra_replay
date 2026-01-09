@@ -223,6 +223,10 @@ class ExgrReplayManager:
         self.initial_skip_node_count = 0
         self.n_skipped_nodes = 0
 
+        # NCCL user buffer supports
+        self.user_buffer_process_groups: set[int] = set()
+        self.user_buffer_tensors: dict[int, torch.tensor] = {}
+
         self.tensor_with_device = True
         # A tensor may appear on multiple devices but here we only store the first device for initialization
         # since device change should be captured in operator execution and be naturally recovered by replaying
@@ -340,6 +344,7 @@ class ExgrReplayManager:
                     if replay_config_json:
                         self.replay_config = json.load(replay_config_json)
                         self.actual_skip_nodes = self.replay_config["skip nodes"]
+                        import_third_party_modules(self.replay_config["import modules"])
                         self.initial_skip_node_count = len(self.actual_skip_nodes)
             else:
                 self.trace_file = f"{self.args.trace_path}/rank-{self.comms_env_params['global_rank']}.json"
@@ -368,6 +373,7 @@ class ExgrReplayManager:
                     self.actual_skip_nodes = self.replay_config["skip nodes"]
                     import_third_party_modules(self.replay_config["import modules"])
                     self.initial_skip_node_count = len(self.actual_skip_nodes)
+                    self.user_buffer_process_groups = set(self.replay_config["user buffer process groups"])
             except OSError:
                 logger.info(
                     f"Failed to load replay config file {self.args.replay_config}."
@@ -451,12 +457,14 @@ class ExgrReplayManager:
         return: all nodes in the subgraph, in the order of node ID (also execution)
         """
 
-        def analayze_node(node):
+        def analyze_node(node):
+            tensor_storage_ids: set[int] = set()
             for _, t_id, _ in get_input_tensors(node):
                 if self.tensor_with_device:
                     t_id = tuple(list(t_id)[:5])
                 if node.name == "record_param_comms" and self.replay_mode == ReplayMode.COMP:
                     continue
+                tensor_storage_ids.add(t_id[1])
                 self.input_tensor_ids.add(t_id)
 
             # The output tensors from the comm nodes also need to be allocated. Since the
@@ -470,9 +478,14 @@ class ExgrReplayManager:
                         t_id = tuple(list(t_id)[:5])
                     if node.name != "record_param_comms":
                         continue
+                    tensor_storage_ids.add(t_id[1])
                     self.input_tensor_ids.add(t_id)
  
             if node.name == "record_param_comms":
+                for id in tensor_storage_ids:
+                    if id is not in self.user_buffer_tensors:
+                        self.user_buffer_tensors[id] = None
+                        
                 # Node "record_param_comms" is not able to have a func created by self.build_func
                 # but we still want to return success to keep it in self.sorted_nodes
                 return True, ""
@@ -514,7 +527,7 @@ class ExgrReplayManager:
         logger.info(f"#Operators to execute: {len(self.sorted_nodes)}")
         picked_nodes = []
         for node in self.sorted_nodes:
-            success, msg = analayze_node(node)
+            success, msg = analyze_node(node)
             if success:
                 picked_nodes.append(node)
             else:
@@ -1253,6 +1266,9 @@ class ExgrReplayManager:
         self.commsBench.initBackend(bootstrap_info, self.commsParams)
         self.commsBench.initBench(self.commsParams, comms_args)
         self.commsBench.replayInit(self.commsParams)
+
+        if self.user_buffer_process_groups is not None:
+            self.ub_mem_allocate_conext = self.commsBench.backendFuncs.get_ub_alloc_context(self.user_buffer_process_groups)
 
         # DEBUG
         # self.commsBench.is_blocking = True

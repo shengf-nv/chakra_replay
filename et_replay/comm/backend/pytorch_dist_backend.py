@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import functools
 import json
 import logging
 import os
@@ -22,7 +22,6 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-import nccl_allocator
 
 from torch._C._distributed_c10d import (
     AllgatherOptions,
@@ -31,6 +30,7 @@ from torch._C._distributed_c10d import (
 )
 
 from et_replay.comm.backend.base_backend import BaseBackend, collectiveArgsHolder
+import et_replay.comm.backend.nccl_allocator as nccl_allocator
 from et_replay.comm.param_profile import paramProfile
 
 try:
@@ -1282,7 +1282,7 @@ class PyTorchDistBackend(BaseBackend):
             dist.destroy_process_group()
         pass
 
-    def get_ub_alloc_context(process_group_ids: list[int], symmetric=True):
+    def get_ub_alloc_context(self, process_group_ids: list[int], symmetric=True):
         ubr_groups = [self.groups[id] for id in process_group_ids]
 
         global NCCL_MEMORY_POOL
@@ -1291,21 +1291,33 @@ class PyTorchDistBackend(BaseBackend):
             nccl_allocator.init()
             NCCL_MEMORY_POOL = nccl_allocator.create_nccl_mem_pool(symmetric=symmetric)
             if torch.distributed.get_rank() == 0:
-                logging.info(
+                logger.info(
                     f"Created NCCL memory pool for UserBuffer Registration"
                 )
             # All ranks in each group must participate in the collective to avoid deadlock.
+            local_rank = int(os.environ.get("LOCAL_RANK", 0))
+            local_device = torch.device("cuda", local_rank)
+            dummy_input_ag  = torch.ones(1, device=local_device, dtype=torch.float32)
+            world_size: int = torch.distributed.get_world_size()
+            dummy_output_ag = [torch.empty_like(dummy_input_ag) for _ in range(world_size)]
+
             for i, group in enumerate(ubr_groups):
-                torch.distributed.barrier(group=group, async_op=False)
+                # torch.distributed.barrier(group=group, async_op=False)
+                torch.distributed.all_gather(
+                    dummy_output_ag,
+                    dummy_input_ag,
+                    group=group,
+                    async_op=False
+                ) 
                 if torch.distributed.get_rank() == 0:
-                    logging.info(
+                    logger.info(
                         f"Call Success with the group [{i+1}/{len(ubr_groups)}] \
                             group.group_desc: {group.group_desc}"
                     )
             # Call barrier from the global communitcator group
             torch.distributed.barrier(async_op=False)
             if torch.distributed.get_rank() == 0:
-                logging.info(f"Call Success with the global communicator group")
+                logger.info(f"Call Success with the global communicator group")
 
         mem_alloc_context = functools.partial(
             nccl_allocator.MultiGroupMemPoolAllocator,

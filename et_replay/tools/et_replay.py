@@ -483,7 +483,7 @@ class ExgrReplayManager:
  
             if node.name == "record_param_comms":
                 for id in tensor_storage_ids:
-                    if id is not in self.user_buffer_tensors:
+                    if id not in self.user_buffer_tensors:
                         self.user_buffer_tensors[id] = None
                         
                 # Node "record_param_comms" is not able to have a func created by self.build_func
@@ -1267,7 +1267,9 @@ class ExgrReplayManager:
         self.commsBench.initBench(self.commsParams, comms_args)
         self.commsBench.replayInit(self.commsParams)
 
+        print(f"self.user_buffer_process_groups = {self.user_buffer_process_groups}", flush=True)
         if self.user_buffer_process_groups is not None:
+            print("before call get_ub_alloc_context", flush=True)
             self.ub_mem_allocate_conext = self.commsBench.backendFuncs.get_ub_alloc_context(self.user_buffer_process_groups)
 
         # DEBUG

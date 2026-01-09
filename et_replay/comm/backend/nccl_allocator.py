@@ -10,7 +10,8 @@ import torch
 # pylint: disable=unused-import
 from torch.utils import cpp_extension
 
-from megatron.core.utils import is_torch_min_version
+from packaging.version import Version as PkgVersion
+_torch_version = PkgVersion(torch.__version__)
 
 # MCORE NCCL Allocator copies and modifies the APEX NCCL allocator.
 # The original APEX NCCL allocator is available at:
@@ -105,6 +106,10 @@ def get_func_args(func):
     sig = inspect.signature(func)
     return [arg.name for arg in sig.parameters.values()]
 
+def is_torch_min_version(version, check_equality=True):  
+    if check_equality:
+        return _torch_version >= PkgVersion(version)
+    return _torch_version > PkgVersion(version)
 
 def create_nccl_mem_pool(symmetric=None):  # symmetric: bool | None = None -> torch.cuda.MemPool:
     """

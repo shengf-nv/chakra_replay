@@ -1074,7 +1074,7 @@ class PyTorchDistBackend(BaseBackend):
                     os.environ["SHARP_COLL_NUM_MCAST_TREES" ] ="1"
                     os.environ["SHARP_COLL_USE_DEVX"]="0" 
                     os.environ["SHARP_COLL_PLANE_MASK"]="15"
-                    os.environ["NCCL_ALGO"]="collnetdirect,ring"
+                    os.environ["NCCL_ALGO"]="collnetdirect"
 
                 elif pg_desc == "DATA_PARALLEL_GROUP_WITH_CP":
                     # This PG for reduce scatter
@@ -1118,6 +1118,8 @@ class PyTorchDistBackend(BaseBackend):
                     for key, value in sharp_envs.items():
                         if value is not None:
                             os.environ[key]   = value
+                        else:
+                            del os.environ[key] 
                 elif pg_desc == "DATA_PARALLEL_GROUP_WITH_CP":
                     # This PG for reduce scatter
 
@@ -1135,6 +1137,8 @@ class PyTorchDistBackend(BaseBackend):
                     for key, value in sharp_envs.items():
                         if value is not None:
                             os.environ[key]   = value
+                        else:
+                            del os.environ[key] 
                     
             return pg if pg is not dist.GroupMember.NON_GROUP_MEMBER else None
 
@@ -1278,7 +1282,6 @@ class PyTorchDistBackend(BaseBackend):
         return
 
     def __del__(self):
-        print("SHENG delete PyTorchDistBackend", flush=True)
         global NCCL_MEMORY_POOL
         if NCCL_MEMORY_POOL is None:
             NCCL_MEMORY_POOL.release_all()

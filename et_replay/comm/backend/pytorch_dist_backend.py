@@ -1278,9 +1278,15 @@ class PyTorchDistBackend(BaseBackend):
         return
 
     def __del__(self):
-        if dist.is_initialized():
-            dist.destroy_process_group()
-        pass
+        print("SHENG delete PyTorchDistBackend", flush=True)
+        global NCCL_MEMORY_POOL
+        if NCCL_MEMORY_POOL is None:
+            NCCL_MEMORY_POOL.release_all()
+            del NCCL_MEMORY_POOL
+            import gc
+            gc.collect()
+        #if dist.is_initialized():
+        #    dist.destroy_process_group()
 
     def get_ub_alloc_context(self, process_group_ids: list[int], symmetric=True):
         ubr_groups = [self.groups[id] for id in process_group_ids]

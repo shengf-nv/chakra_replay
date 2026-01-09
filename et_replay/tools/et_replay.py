@@ -23,6 +23,7 @@ import os
 import sys
 import time
 from collections import defaultdict
+from contextlib import nullcontext
 from datetime import datetime
 from enum import Enum
 
@@ -225,6 +226,9 @@ class ExgrReplayManager:
 
         # NCCL user buffer supports
         self.user_buffer_process_groups: set[int] = set()
+        # The dictionary from tensor storage id to user buffer tensor
+        # Since the user buffer tensor allocation is expensive, this dictionary
+        # always keep the reference to these tensors so it won't be released
         self.user_buffer_tensors: dict[int, torch.tensor] = {}
 
         self.tensor_with_device = True
@@ -886,43 +890,56 @@ class ExgrReplayManager:
             return None
         tensor_data = self.tensor_storage_map[storage_id]
         if device not in tensor_data[1]:
-            if (
-                data_type
-                in [
-                    torch.int8,
-                    torch.int16,
-                    torch.int32,
-                    torch.int64,
-                    torch.uint8,
-                    torch.uint16,
-                    torch.uint32,
-                    torch.uint64,
-                    torch.int,
-                    torch.long,
-                ]
-                and tensor_range is not None
-            ):
-                storage_tensor = torch.randint(
-                    tensor_range[0],
-                    tensor_range[1] + 1,
-                    (tensor_data[0] // elem_bytes,),
-                    dtype=data_type,
-                    device=device,
-                )
-            elif data_type in [
-                torch.half,
-                torch.float32,
-                torch.float64,
-                torch.bfloat16,
-            ]:
-                storage_tensor = torch.rand(
-                    (tensor_data[0] // elem_bytes), dtype=data_type, device=device
-                )
-            else:
-                storage_tensor = torch.ones(
-                    (tensor_data[0] // elem_bytes), dtype=data_type, device=device
-                )
+            storage_tensor = None
+            mem_alloc_context = nullcontext
+            is_user_buffer_tensor = False
+            if storage_id in self.user_buffer_tensors:
+                is_user_buffer_tensor = True
+                storage_tensor = self.user_buffer_tensors[storage_id]
+                if storage_tensor is None:
+                    mem_alloc_context = self.ub_mem_allocate_conext
+                    torch.cuda.synchronize()
 
+            if storage_tensor is None:
+                with mem_alloc_context():
+                    if (
+                        data_type
+                        in [
+                            torch.int8,
+                            torch.int16,
+                            torch.int32,
+                            torch.int64,
+                            torch.uint8,
+                            torch.uint16,
+                            torch.uint32,
+                            torch.uint64,
+                            torch.int,
+                            torch.long,
+                        ]
+                        and tensor_range is not None
+                    ):
+                        storage_tensor = torch.randint(
+                            tensor_range[0],
+                            tensor_range[1] + 1,
+                            (tensor_data[0] // elem_bytes,),
+                            dtype=data_type,
+                            device=device,
+                        )
+                    elif data_type in [
+                        torch.half,
+                        torch.float32,
+                        torch.float64,
+                        torch.bfloat16,
+                    ]:
+                        storage_tensor = torch.rand(
+                            (tensor_data[0] // elem_bytes), dtype=data_type, device=device
+                        )
+                    else:
+                        storage_tensor = torch.ones(
+                            (tensor_data[0] // elem_bytes), dtype=data_type, device=device
+                        )
+            if is_user_buffer_tensor:
+                self.user_buffer_tensors[storage_id] = storage_tensor
             tensor_data[1][device] = storage_tensor
         else:
             storage_tensor = tensor_data[1][device]
@@ -1267,9 +1284,7 @@ class ExgrReplayManager:
         self.commsBench.initBench(self.commsParams, comms_args)
         self.commsBench.replayInit(self.commsParams)
 
-        print(f"self.user_buffer_process_groups = {self.user_buffer_process_groups}", flush=True)
         if self.user_buffer_process_groups is not None:
-            print("before call get_ub_alloc_context", flush=True)
             self.ub_mem_allocate_conext = self.commsBench.backendFuncs.get_ub_alloc_context(self.user_buffer_process_groups)
 
         # DEBUG

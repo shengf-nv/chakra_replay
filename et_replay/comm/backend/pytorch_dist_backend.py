@@ -208,7 +208,7 @@ class PyTorchDistBackend(BaseBackend):
             group=self.get_collective_group(collectiveArgs)
             all_reduce_opts = AllreduceCoalescedOptions()
             all_reduce_opts.reduceOp = collectiveArgs.op
-            all_reduce_opts.asyncOp = collectiveArgs.asyncOp,
+            all_reduce_opts.asyncOp = collectiveArgs.asyncOp
 
             retObj = group.allreduce_coalesced(quantized, all_reduce_opts)
             

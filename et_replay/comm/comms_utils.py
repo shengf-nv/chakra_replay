@@ -896,7 +896,7 @@ class paramCommsBench(ABC):
                 for i in curComm.inSplit
             ]
 
-        opTensor = ipTensor[0]
+            opTensor = ipTensor[0]
         return (ipTensor, opTensor)
 
     def _prep_all_to_allv(

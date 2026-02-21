@@ -25,6 +25,7 @@ import time
 from collections import defaultdict
 from datetime import datetime
 from enum import Enum
+from typing import List
 
 import numpy as np
 import torch
@@ -47,7 +48,7 @@ from et_replay.et_replay_utils import (
     is_tensor_list,
     TORCH_DTYPES_RNG,
 )
-from et_replay.execution_trace import ExecutionTrace, NodeType
+from et_replay.execution_trace import ExecutionTrace, Node, NodeType
 from et_replay.tools.comm_replay import commsTraceReplayBench, writeCommDetails
 from torch._C import _cuda_getCurrentRawStream as get_raw_stream
 from torch._inductor.async_compile import AsyncCompile
@@ -154,7 +155,6 @@ class ExgrReplayManager:
         self.cuda_id = 0
         self.debug = False
         self.replay_mode: ReplayMode = ReplayMode.FULL
-        self.generator = False
         self.trace_file = ""
         self.dump = False
         self.dump_path = ""
@@ -285,7 +285,6 @@ class ExgrReplayManager:
         else:
             print(f"Invalid replay mode: {self.replay_mode}.")
             sys.exit(-1)
-        self.generator = self.args.generator
         self.dump = self.args.dump
         self.dump_path = self.args.dump_path
         self.out_path = self.args.output_path
@@ -1270,6 +1269,13 @@ class ExgrReplayManager:
         self.commsBench.initBench(self.commsParams, comms_args)
         self.commsBench.replayInit(self.commsParams)
 
+        ep_init = (node for node in nodes if "HybridEPBuffer::__init__" in node.name)
+        assert len(ep_init) <= 1, "There should be only one DeepEPinit node"
+        if len(ep_init) == 1:
+            ep_init_node = ep_init[0]
+            init_hybrid_ep_buffer(ep_init_node)
+        
+        
     def remove_op_with_runtime_error(self):
         for cnt, node in enumerate(self.sorted_nodes):
             success, msg = self.run_op(node, 0, cnt)
@@ -1312,10 +1318,11 @@ class ExgrReplayManager:
             self.add_skipped_nodes(node, msg)
 
     def preprocess_graph(self):
-        if self.replay_mode != ReplayMode.COMP and not self.generator:
+        if self.replay_mode != ReplayMode.COMP:
             self.init_comms()
 
         nodes = self.et.get_nodes(clean=True)
+
         assert isinstance(self.args.subgraph, str)
         if self.args.subgraph != "":
             find_subgraph = False
@@ -1346,9 +1353,7 @@ class ExgrReplayManager:
             len(self.tensor_shapes),
         )
 
-        if self.generator:
-            self.generate_code()
-        elif self.tensor_allocate_mode == TensorAllcationMode.PRE_ALLOCATE:
+        if self.tensor_allocate_mode == TensorAllcationMode.PRE_ALLOCATE:
             self.allocate_tensors()
 
     def benchTime(self):
@@ -1357,8 +1362,6 @@ class ExgrReplayManager:
 
         start_time = datetime.now()
         self.preprocess_graph()
-        if self.generator:
-            return 0
 
         if self.args.update_replay_config:
             if os.environ.get("CUDA_LAUNCH_BLOCKING", "0") != "1":

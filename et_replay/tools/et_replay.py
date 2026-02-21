@@ -27,6 +27,8 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 
+from et_replay.deep_ep_utils import init_hybrid_ep_buffer
+
 import numpy as np
 import torch
 
@@ -1268,13 +1270,6 @@ class ExgrReplayManager:
         self.commsBench.initBackend(bootstrap_info, self.commsParams)
         self.commsBench.initBench(self.commsParams, comms_args)
         self.commsBench.replayInit(self.commsParams)
-
-        ep_init = (node for node in nodes if "HybridEPBuffer::__init__" in node.name)
-        assert len(ep_init) <= 1, "There should be only one DeepEPinit node"
-        if len(ep_init) == 1:
-            ep_init_node = ep_init[0]
-            init_hybrid_ep_buffer(ep_init_node)
-        
         
     def remove_op_with_runtime_error(self):
         for cnt, node in enumerate(self.sorted_nodes):
@@ -1318,10 +1313,22 @@ class ExgrReplayManager:
             self.add_skipped_nodes(node, msg)
 
     def preprocess_graph(self):
+        nodes = self.et.get_nodes(clean=True)
+        
         if self.replay_mode != ReplayMode.COMP:
             self.init_comms()
 
-        nodes = self.et.get_nodes(clean=True)
+            # Initialize the HybridEPBuffer
+            ep_init = [
+                node for node in nodes.values()
+                if "HybridEPBuffer::__init__" in node.name
+            ]
+            assert len(ep_init) <= 1, "There should be only one DeepEPinit node"
+            if len(ep_init) == 1:
+                ep_init_node = ep_init[0]
+                self.hybrid_ep_buffer = init_hybrid_ep_buffer(ep_init_node, 
+                    self.commsBench.backendFuncs.get_groups())
+                print("init EP buffer done")
 
         assert isinstance(self.args.subgraph, str)
         if self.args.subgraph != "":

@@ -27,7 +27,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 
-from et_replay.deep_ep_utils import init_hybrid_ep_buffer
+from et_replay.deep_ep_utils import init_hybrid_ep_buffer, build_hybrid_ep_func, get_hybrid_ep_config_instance
 
 import numpy as np
 import torch
@@ -497,11 +497,13 @@ class ExgrReplayManager:
         def dfs_traverse(node):
             if self.profile_step_label in node.name:
                 self.profile_step_node_ids.append(node.id)
-            if node.type == NodeType.OPERATOR:
+            # if node.type == NodeType.OPERATOR or node.name in ("HybridEPBuffer::combine"):
+            if node.name in ("HybridEPBuffer::combine"):
                 if ((self.replay_mode == ReplayMode.FULL) or
                     (self.replay_mode == ReplayMode.COMP and node.name != "record_param_comms") or 
                     (self.replay_mode == ReplayMode.COMM and node.name == "record_param_comms")):
                     if not self.is_skipped(node):
+                        print(f"Adding node {node.name} to sorted nodes")
                         self.sorted_nodes.append(node)
                 return
 
@@ -809,6 +811,8 @@ class ExgrReplayManager:
                     node, self.resource_dir, self.async_compile, self.device
                 )
                 self.kernel_map[node.kernel_file] = func
+        if node.name.startswith("HybridEPBuffer::"):
+            func, output_count = build_hybrid_ep_func(self.hybrid_ep_buffer, node)
         else:
             func, output_count = build_torchscript_func(node)
 
@@ -957,12 +961,20 @@ class ExgrReplayManager:
             if self.tensor_allocate_mode == TensorAllcationMode.LAZY_ALLOCATE:
                 self.allocate_node_tensors(node, is_input, is_comm_node)
             if is_input:
-                data_in = node.inputs
+                if node.name.startswith("HybridEPBuffer::"):
+                    data_in = node.inputs[0]
+                else:
+                    data_in = node.inputs
             else:
                 data_in = node.outputs
             data_out = []
             tensor_index = 0
             for idx, item in enumerate(data_in):
+                print(f"idx: {idx}, item: {item}")
+                if node.name.startswith("HybridEPBuffer::combine") and idx == 0:
+                    data_out.append(get_hybrid_ep_config_instance(node))
+                    continue
+
                 if is_tensor(node, idx, is_input):
                     if (
                         is_input
@@ -1105,6 +1117,8 @@ class ExgrReplayManager:
             self.free_device_memory()
         
         if isinstance(node, commsArgs):
+            return True, ""
+
             warmup = iter < self.numWarmupIters
             if self.debug and not warmup:
                 start_ns = time.time_ns()

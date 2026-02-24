@@ -961,10 +961,7 @@ class ExgrReplayManager:
             if self.tensor_allocate_mode == TensorAllcationMode.LAZY_ALLOCATE:
                 self.allocate_node_tensors(node, is_input, is_comm_node)
             if is_input:
-                if node.name.startswith("HybridEPBuffer::"):
-                    data_in = node.inputs[0]
-                else:
-                    data_in = node.inputs
+                data_in = node.inputs
             else:
                 data_in = node.outputs
             data_out = []

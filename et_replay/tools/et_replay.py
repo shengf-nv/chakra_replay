@@ -232,6 +232,8 @@ class ExgrReplayManager:
         self.initial_skip_node_count = 0
         self.n_skipped_nodes = 0
 
+        self.not_replable_nodes = set(["HybridEPBuffer::__init__"])
+
         self.tensor_with_device = True
         # A tensor may appear on multiple devices but here we only store the first device for initialization
         # since device change should be captured in operator execution and be naturally recovered by replaying
@@ -450,6 +452,8 @@ class ExgrReplayManager:
             self.actual_skip_nodes[node.name] = reason
 
     def is_skipped(self, node) -> bool:
+        if node.name in self.not_replable_nodes:
+            return True
         if node.name in self.actual_skip_nodes:
             self.n_skipped_nodes += 1
             return True
@@ -497,13 +501,11 @@ class ExgrReplayManager:
         def dfs_traverse(node):
             if self.profile_step_label in node.name:
                 self.profile_step_node_ids.append(node.id)
-            # if node.type == NodeType.OPERATOR or node.name in ("HybridEPBuffer::combine"):
-            if node.name in ("HybridEPBuffer::combine"):
+            if node.type == NodeType.OPERATOR:
                 if ((self.replay_mode == ReplayMode.FULL) or
                     (self.replay_mode == ReplayMode.COMP and node.name != "record_param_comms") or 
                     (self.replay_mode == ReplayMode.COMM and node.name == "record_param_comms")):
                     if not self.is_skipped(node):
-                        print(f"Adding node {node.name} to sorted nodes")
                         self.sorted_nodes.append(node)
                 return
 
@@ -967,8 +969,7 @@ class ExgrReplayManager:
             data_out = []
             tensor_index = 0
             for idx, item in enumerate(data_in):
-                print(f"idx: {idx}, item: {item}")
-                if node.name.startswith("HybridEPBuffer::combine") and idx == 0:
+                if node.name.startswith("HybridEPBuffer::") and idx == 0:
                     data_out.append(get_hybrid_ep_config_instance(node))
                     continue
 
@@ -1339,7 +1340,6 @@ class ExgrReplayManager:
                 ep_init_node = ep_init[0]
                 self.hybrid_ep_buffer = init_hybrid_ep_buffer(ep_init_node, 
                     self.commsBench.backendFuncs.get_groups())
-                print("init EP buffer done")
 
         assert isinstance(self.args.subgraph, str)
         if self.args.subgraph != "":

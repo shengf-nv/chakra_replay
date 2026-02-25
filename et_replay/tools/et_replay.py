@@ -813,7 +813,7 @@ class ExgrReplayManager:
                     node, self.resource_dir, self.async_compile, self.device
                 )
                 self.kernel_map[node.kernel_file] = func
-        if node.name.startswith("HybridEPBuffer::"):
+        elif node.name.startswith("HybridEPBuffer::"):
             func, output_count = build_hybrid_ep_func(self.hybrid_ep_buffer, node)
         else:
             func, output_count = build_torchscript_func(node)
@@ -958,6 +958,15 @@ class ExgrReplayManager:
         ):
             self.tensor_storage_map[storage_id][1] = {}
 
+    def get_not_pytorch_native_node_data(self, node, idx, data):
+        # DeepEP and other third-party library may have non-PyTorch native inputs, 
+        # we need to handle them here.
+        if node.name.startswith("HybridEPBuffer::") and idx == 0:
+            data.append(get_hybrid_ep_config_instance(node))
+            return True
+        else:
+            return False
+
     def get_data(self, node, is_input, is_comm_node):
         try:
             if self.tensor_allocate_mode == TensorAllcationMode.LAZY_ALLOCATE:
@@ -969,8 +978,7 @@ class ExgrReplayManager:
             data_out = []
             tensor_index = 0
             for idx, item in enumerate(data_in):
-                if node.name.startswith("HybridEPBuffer::") and idx == 0:
-                    data_out.append(get_hybrid_ep_config_instance(node))
+                if self.get_not_pytorch_native_node_data(node, idx, data_out):
                     continue
 
                 if is_tensor(node, idx, is_input):

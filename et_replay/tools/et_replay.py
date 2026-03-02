@@ -766,6 +766,7 @@ class ExgrReplayManager:
                             torch.int64,
                             torch.uint64,
                             torch.long,
+                            torch.bool,
                         )
                         and is_input
                     ):
@@ -774,7 +775,6 @@ class ExgrReplayManager:
                         )
                         if tensor is not None:
                             node.pre_load_tensors[idx] = tensor
-
                     if tensor is None:
                         tensor = self.get_tensor_from_storage(
                             t_id[1],  # storage_id
@@ -846,11 +846,16 @@ class ExgrReplayManager:
                 return np.int64
             elif data_type == torch.uint64:
                 return np.uint64
+            elif data_type == torch.bool:
+                return np.bool_
+            elif data_type == torch.float32:
+                return np.float32
+            elif data_type == torch.bfloat16:
+                return np.uint16  # same 16-bit layout; view to bfloat16 after load
             else:
                 raise ValueError(f"Unsupported data type: {data_type}")
 
         device = torch.device(device)
-
         # check if the tensor data file exists
         storage_fn = (
             self.resource_dir
@@ -862,14 +867,18 @@ class ExgrReplayManager:
         )
         if os.path.isfile(storage_fn):
             np_x = np.fromfile(storage_fn, dtype=to_numpy_data_type(data_type))
-            if len(shape) == 0:
+            # .item() only works for array of size 1; use it only for scalar tensors
+            if len(shape) == 0 or np.prod(shape) == 1:
                 np_x = np_x.item()
-                x = torch.tensor(np_x)
-            else:
+            if len(shape) != 0:
                 np_x = np.reshape(np_x, shape)
-                x = torch.from_numpy(np_x)
-                if device != torch.device("cpu"):
-                    x = x.cuda(device)
+            if data_type == torch.bfloat16:
+                x = torch.tensor(np_x, dtype=torch.uint16).view(torch.bfloat16)
+            else:
+                x = torch.tensor(np_x, dtype=data_type)
+               
+            if device != torch.device("cpu"):
+                x = x.cuda(device)
             return x
         else:
             return None

@@ -100,7 +100,20 @@ def get_hybrid_ep_config_instance(node: Node):
 def build_hybrid_ep_func(hybrid_ep_buffer: hybrid_ep_cpp.HybridEPBuffer, node: Node):
     assert node.name.startswith("HybridEPBuffer::"), "Node is not a HybridEPBuffer:: node"
 
-    if node.name == "HybridEPBuffer::combine":
+    if node.name == "HybridEPBuffer::update_buffer":
+        def update_buffer(*args):
+            return hybrid_ep_buffer.update_buffer(config=args[0])
+        return update_buffer, 1
+    elif node.name == "HybridEPBuffer::metadata_preprocessing":
+        def metadata_preprocessing(*args):
+            return hybrid_ep_buffer.metadata_preprocessing(
+                config=args[0],
+                routing_map=args[1],
+                num_of_tokens_per_rank=args[2],
+                non_blocking=args[3],
+            )
+        return metadata_preprocessing, 5
+    elif node.name == "HybridEPBuffer::combine":
         def combine(*args):
             # C++ binding uses py::kw_only(); pass as keywords.
             return hybrid_ep_buffer.combine(
@@ -132,7 +145,7 @@ def build_hybrid_ep_func(hybrid_ep_buffer: hybrid_ep_cpp.HybridEPBuffer, node: N
         return dispatch, 3
     elif node.name == "HybridEPBuffer::dispatch_with_permute":
         def dispatch_with_permute(*args):
-            return hybrid_ep_buffer.dispatch_with_permute(
+            kwargs = dict(
                 config=args[0],
                 hidden=args[1],
                 probs=args[2],
@@ -140,7 +153,7 @@ def build_hybrid_ep_func(hybrid_ep_buffer: hybrid_ep_cpp.HybridEPBuffer, node: N
                 sparse_to_dense_map=args[4],
                 rdma_to_attn_map=args[5],
                 attn_to_rdma_map=args[6],
-                num_dispatched_tokens_tensor=args[7],
+                num_dispatched_tokens_tensor= None if args[7] is None else args[7].pin_memory(),
                 local_expert_routing_map=args[8],
                 row_id_map=args[9],
                 num_permuted_tokens=args[10],
@@ -149,6 +162,7 @@ def build_hybrid_ep_func(hybrid_ep_buffer: hybrid_ep_cpp.HybridEPBuffer, node: N
                 non_blocking=args[13],
                 with_probs=args[14],
             )
+            return hybrid_ep_buffer.dispatch_with_permute(**kwargs)
         return dispatch_with_permute, 6
     elif node.name == "HybridEPBuffer::combine_with_unpermute":
         def combine_with_unpermute(*args):
@@ -159,15 +173,13 @@ def build_hybrid_ep_func(hybrid_ep_buffer: hybrid_ep_cpp.HybridEPBuffer, node: N
                 sparse_to_dense_map=args[3],
                 rdma_to_attn_map=args[4],
                 attn_to_rdma_map=args[5],
-                num_dispatched_tokens_tensor=args[6],
-                local_expert_routing_map=args[7],
-                row_id_map=args[8],
-                num_permuted_tokens=args[9],
-                num_of_tokens_per_rank=args[10],
-                pad_multiple=args[11],
-                non_blocking=args[12],
-                with_probs=args[13],
+                num_dispatched_tokens_tensor=None if args[6] is None else args[6].pin_memory(),
+                row_id_map=args[7],
+                num_of_tokens_per_rank=args[8],
+                pad_multiple=args[9],
+                with_probs=args[10],
             )
+     
         return combine_with_unpermute, 2
     else:
         raise ValueError("hybrid_ep_cpp: unsupported node name %s" % node.name) 

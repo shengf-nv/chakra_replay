@@ -501,6 +501,7 @@ class ExgrReplayManager:
         def dfs_traverse(node):
             if self.profile_step_label in node.name:
                 self.profile_step_node_ids.append(node.id)
+            # if node.name.startswith("HybridEPBuffer") or node.name.startswith("record_param_comms"):
             if node.type == NodeType.OPERATOR:
                 if ((self.replay_mode == ReplayMode.FULL) or
                     (self.replay_mode == ReplayMode.COMP and node.name != "record_param_comms") or 
@@ -1124,7 +1125,8 @@ class ExgrReplayManager:
             logger.info("Device memory freed, allocated memory = %s GB",
                 torch.cuda.memory_allocated(self.device) / 1024 / 1024 / 1024)
 
-    def run_op(self, node, iter, cnt):  # noqa: C901
+    def run_op(self, node, iter, cnt):  # noq
+        print(f"run_op: {node}", flush=True)
         if (
             self.tensor_allocate_mode == TensorAllcationMode.LAZY_ALLOCATE
             and self.args.device_memory_threshold != 1.0
@@ -1132,8 +1134,6 @@ class ExgrReplayManager:
             self.free_device_memory()
         
         if isinstance(node, commsArgs):
-            return True, ""
-
             warmup = iter < self.numWarmupIters
             if self.debug and not warmup:
                 start_ns = time.time_ns()

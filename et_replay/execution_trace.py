@@ -294,10 +294,16 @@ class Node:
         for type, input, shape in param_list:  # TBR: avoid using python key words
             if type.startswith("Tensor"):
                 tensors.append((type, tuple(input), shape))
+            elif type.startswith("GenericList[GenericList"):
+                elem_type = type[len("GenericList[GenericList[") : -2].split(",")
+                elem_input = input[0]
+                elem_shape = shape[0]
+                tensors.extend(self.get_tensors(zip(elem_type, elem_input, elem_shape)))
             # GenericList could have tensor elements
-            if type.startswith("GenericList"):
+            elif type.startswith("GenericList"):
                 elem_type = type[len("GenericList[") : -1].split(",")
                 tensors.extend(self.get_tensors(zip(elem_type, input, shape)))
+
         return tensors
 
     def get_tensor_strides(
@@ -307,12 +313,19 @@ class Node:
         for (type, input, shape), stride in zip(input_list, stride_list):
             if type.startswith("Tensor"):
                 strides.append(tuple(stride))
+            elif type.startswith("GenericList[GenericList"):
+                elem_type = type[len("GenericList[GenericList[") : -2].split(",")
+                elem_input = input[0]
+                elem_shape = shape[0]
+                elem_stride = stride[0]
+                strides.extend(self.get_tensor_strides(zip(elem_type, elem_input, elem_shape), elem_stride))
             # GenericList could have tensor elements
             elif type.startswith("GenericList"):
                 elem_type = type[len("GenericList[") : -1].split(",")
                 strides.extend(
                     self.get_tensor_strides(zip(elem_type, input, shape), stride)
                 )
+
         return strides
 
     def get_input_tensors(self) -> list[tuple]:

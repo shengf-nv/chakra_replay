@@ -74,6 +74,12 @@ def is_tensor_list(n, idx, is_input):
     return isinstance(idx, int) and "GenericList[Tensor" in types_list[idx]
 
 
+def is_tensor_list_list(n, idx, is_input):
+    """True when the type is list of list of tensor (e.g. GenericList[GenericList[Tensor]])."""
+    types_list = n.input_types if is_input else n.output_types
+    return isinstance(idx, int) and "GenericList[GenericList[Tensor" in types_list[idx]
+
+
 def is_tensor(n, idx, is_input):
     types_list = n.input_types if is_input else n.output_types
     return (

@@ -48,6 +48,7 @@ from et_replay.et_replay_utils import (
     import_third_party_modules,
     is_tensor,
     is_tensor_list,
+    is_tensor_list_list,
     TORCH_DTYPES_RNG,
 )
 from et_replay.execution_trace import ExecutionTrace, Node, NodeType
@@ -1009,6 +1010,33 @@ class ExgrReplayManager:
                         )
 
                     tensor_index += 1
+
+                elif is_tensor_list_list(node, idx, is_input):
+                    # item: list of list of tensor ids
+                    self.lookup_cnt += sum(len(inner_list) for inner_list in item)
+                    list_of_tensor_lists = []
+                    for inner_list in item:
+                        tensor_list = []
+                        for t_id in inner_list:
+                            if (
+                                is_input
+                                and hasattr(node, "pre_load_tensors")
+                                and node.pre_load_tensors[tensor_index] is not None
+                            ):
+                                tensor_list.append(node.pre_load_tensors[tensor_index])
+                            else:
+                                if self.tensor_with_device:
+                                    t_id = tuple(t_id[:5])
+                                else:
+                                    t_id = tuple(t_id)
+                                tensor_list.append(
+                                    self.tensor_registry[
+                                        self.tensors_mapping[(node.id, t_id, True)]
+                                    ]
+                                )
+                            tensor_index += 1  # consumed one tensor slot
+                        list_of_tensor_lists.append(tensor_list)
+                    data_out.append(list_of_tensor_lists)
 
                 elif is_tensor_list(node, idx, is_input):
                     self.lookup_cnt += len(item)

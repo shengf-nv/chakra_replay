@@ -1154,7 +1154,6 @@ class ExgrReplayManager:
                 torch.cuda.memory_allocated(self.device) / 1024 / 1024 / 1024)
 
     def run_op(self, node, iter, cnt):  # noq
-        print(f"run_op: {node}", flush=True)
         if (
             self.tensor_allocate_mode == TensorAllcationMode.LAZY_ALLOCATE
             and self.args.device_memory_threshold != 1.0

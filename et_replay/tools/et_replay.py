@@ -461,6 +461,11 @@ class ExgrReplayManager:
         else:
             return False
 
+    def is_comm_node(self, node):
+        # return node.name == "record_param_comms" or node.name.startswith("HybridEPBuffer")
+        return node.name.startswith("HybridEPBuffer")
+        #return node.name == "record_param_comms"
+
     def extract_subgraph(self, root):
         """
         return: all nodes in the subgraph, in the order of node ID (also execution)
@@ -505,8 +510,8 @@ class ExgrReplayManager:
             # if node.name.startswith("HybridEPBuffer") or node.name.startswith("record_param_comms"):
             if node.type == NodeType.OPERATOR:
                 if ((self.replay_mode == ReplayMode.FULL) or
-                    (self.replay_mode == ReplayMode.COMP and node.name != "record_param_comms") or 
-                    (self.replay_mode == ReplayMode.COMM and node.name == "record_param_comms")):
+                    (self.replay_mode == ReplayMode.COMP and not self.is_comm_node(node)) or 
+                    (self.replay_mode == ReplayMode.COMM and self.is_comm_node(node))):
                     if not self.is_skipped(node):
                         self.sorted_nodes.append(node)
                 return
@@ -1161,6 +1166,8 @@ class ExgrReplayManager:
             self.free_device_memory()
         
         if isinstance(node, commsArgs):
+            return True, ""
+            
             warmup = iter < self.numWarmupIters
             if self.debug and not warmup:
                 start_ns = time.time_ns()

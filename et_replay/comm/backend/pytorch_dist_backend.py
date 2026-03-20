@@ -578,6 +578,16 @@ class PyTorchDistBackend(BaseBackend):
             ipTensor = collectiveArgs.ipTensor
             opTensor = collectiveArgs.opTensor
 
+        if ipTensor.dtype != opTensor.dtype:
+            if ipTensor.element_size() == opTensor.element_size():
+                opTensor = opTensor.view(ipTensor.dtype)
+            else:
+                logger.warning(
+                    "all_gather_base: data type mismatch (%s vs %s) ",
+                    ipTensor.dtype,
+                    opTensor.dtype
+                )
+
         retObj = dist.all_gather_into_tensor(
             output_tensor=opTensor,
             input_tensor=ipTensor,

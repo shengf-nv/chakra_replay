@@ -463,8 +463,8 @@ class ExgrReplayManager:
 
     def is_comm_node(self, node):
         # return node.name == "record_param_comms" or node.name.startswith("HybridEPBuffer")
-        return node.name.startswith("HybridEPBuffer")
-        #return node.name == "record_param_comms"
+        # return node.name.startswith("HybridEPBuffer")
+        return node.name == "record_param_comms"
 
     def extract_subgraph(self, root):
         """
@@ -1166,8 +1166,6 @@ class ExgrReplayManager:
             self.free_device_memory()
         
         if isinstance(node, commsArgs):
-            return True, ""
-            
             warmup = iter < self.numWarmupIters
             if self.debug and not warmup:
                 start_ns = time.time_ns()

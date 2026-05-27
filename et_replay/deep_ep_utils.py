@@ -2,6 +2,7 @@ import os
 from typing import Dict
 
 from et_replay.execution_trace import Node
+import torch
 import torch.distributed as dist
 
 try:
@@ -164,7 +165,9 @@ def build_hybrid_ep_func(hybrid_ep_buffer: hybrid_ep_cpp.HybridEPBuffer, node: N
                 non_blocking=args[13],
                 with_probs=args[14],
             )
-            return hybrid_ep_buffer.dispatch_with_permute(**kwargs)
+            output = hybrid_ep_buffer.dispatch_with_permute(**kwargs)
+            torch.cuda.synchronize(torch.cuda.current_device())
+            return output
         return dispatch_with_permute, 6
     elif node.name == "HybridEPBuffer::combine_with_unpermute":
         def combine_with_unpermute(*args):

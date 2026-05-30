@@ -27,7 +27,14 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 
-from et_replay.deep_ep_utils import init_hybrid_ep_buffer, build_hybrid_ep_func, get_hybrid_ep_config_instance
+from et_replay.deep_ep_utils import (
+    init_hybrid_ep_buffer,
+    build_hybrid_ep_func,
+    get_hybrid_ep_config_instance,
+    is_hybrid_ep_config_input,
+    is_hybrid_ep_handle_input,
+    resolve_hybrid_ep_handle,
+)
 
 import numpy as np
 import torch
@@ -975,13 +982,23 @@ class ExgrReplayManager:
             self.tensor_storage_map[storage_id][1] = {}
 
     def get_not_pytorch_native_node_data(self, node, idx, data):
-        # DeepEP and other third-party library may have non-PyTorch native inputs, 
+        # DeepEP and other third-party library may have non-PyTorch native inputs,
         # we need to handle them here.
-        if node.name.startswith("HybridEPBuffer::") and idx == 0:
+        if is_hybrid_ep_config_input(node, idx):
             data.append(get_hybrid_ep_config_instance(node))
             return True
-        else:
-            return False
+        if is_hybrid_ep_handle_input(node, idx):
+            data.append(
+                resolve_hybrid_ep_handle(
+                    node,
+                    node.inputs[idx],
+                    self.tensor_registry,
+                    self.tensors_mapping,
+                    self.tensor_with_device,
+                )
+            )
+            return True
+        return False
 
     def get_data(self, node, is_input, is_comm_node):
         try:

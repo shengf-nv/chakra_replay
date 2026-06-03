@@ -759,14 +759,22 @@ class ExgrReplayManager:
                     found_tensor = True
             if not found_tensor:
                 try:
-                    dtype, _ = TORCH_DTYPES_RNG[
-                        data_type.removeprefix("Tensor(").rstrip(")")
-                    ]
+                    data_type = data_type[len("Tensor(") : -1]
+                    if data_type == 'nullptr (uninitialized)':
+                        tensor = torch.tensor([], dtype=torch.int64)    
+                        if (
+                            self.tensor_allocate_mode
+                            == TensorAllcationMode.PRE_ALLOCATE
+                        ):
+                            self.tensor_registry_permanent[replay_t_id] = tensor
+                        else:
+                            self.tensor_registry[replay_t_id] = tensor  
+                        continue
 
-                    strides = None
                     if node.input_strides is not None:
                         strides = tensor_strides[idx]
 
+                    dtype, _ = TORCH_DTYPES_RNG[data_type]
                     tensor = None
                     if (
                         dtype
@@ -992,6 +1000,7 @@ class ExgrReplayManager:
                 resolve_hybrid_ep_handle(
                     node,
                     node.inputs[idx],
+                    node.input_types[idx],
                     self.tensor_registry,
                     self.tensors_mapping,
                     self.tensor_with_device,
@@ -1377,7 +1386,7 @@ class ExgrReplayManager:
                     t = None
                 else:
                     dtype, rng = TORCH_DTYPES_RNG[
-                        data_type.removeprefix("Tensor(").rstrip(")")
+                        data_type[len("Tensor(") : -1]
                     ]
                     replay_t_id = self.tensors_mapping[(node.id, t_id, False)]
                     t = rng(shape).to(dtype)

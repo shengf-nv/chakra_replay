@@ -108,62 +108,87 @@ def get_hybrid_ep_config_instance(node: Node):
     return get_hybrid_ep_config_instance_from_tuple(node.inputs[0])
 
 
+def _split_generic_list_type(type_str: str) -> List[str]:
+    """Split GenericList[A, B, ...] into top-level element type strings."""
+    if not type_str.startswith("GenericList[") or not type_str.endswith("]"):
+        raise ValueError("Expected GenericList[...] type, got %s" % type_str)
+    inner = type_str[len("GenericList[") : -1]
+    result: List[str] = []
+    depth = 0
+    start = 0
+    for i, ch in enumerate(inner):
+        if ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            data = inner[start:i].strip()
+            if data.startswith("Tensor"):
+                result.append(data)
+            start = i + 1
+    result.append(inner[start:].strip())
+    return result
+
+
 def _resolve_handle_tensor(
     node: Node,
     value,
+    type,
     tensor_registry: Dict,
     tensors_mapping: Dict,
     tensor_with_device: bool,
 ) -> Optional[torch.Tensor]:
-    if is_uninitialized_tensor(value):
-        return None
-    if isinstance(value, torch.Tensor):
-        return value
+    if type == "Tensor(nullptr (uninitialized))":
+        return torch.tensor([], dtype=torch.int64)
     t_id = tuple(value[:5]) if tensor_with_device else tuple(value)
     return tensor_registry[tensors_mapping[(node.id, t_id, True)]]
 
 
 def resolve_hybrid_ep_handle(
     node: Node,
-    handle_tuple: Tuple,
+    value: Tuple,
+    type: str,
     tensor_registry: Dict,
     tensors_mapping: Dict,
     tensor_with_device: bool = True,
 ) -> hybrid_ep_cpp.HandleImpl:
     """Resolve traced handle tuple (tensor ids + nested config) into HandleImpl."""
-    resolved = list(handle_tuple)
+    type = _split_generic_list_type(type)
+    resolved = list(value)
+    tensor_idx = 0
     for idx in _HANDLE_TENSOR_INDICES:
         resolved[idx] = _resolve_handle_tensor(
-            node, handle_tuple[idx], tensor_registry, tensors_mapping, tensor_with_device
+            node, value[idx], type[tensor_idx], tensor_registry, tensors_mapping, tensor_with_device
         )
+        tensor_idx += 1
     if resolved[3] is not None:
         resolved[3] = resolved[3].pin_memory()
-    resolved[_HANDLE_CONFIG_INDEX] = get_hybrid_ep_config_instance_from_tuple(handle_tuple[_HANDLE_CONFIG_INDEX])
+    resolved[_HANDLE_CONFIG_INDEX] = get_hybrid_ep_config_instance_from_tuple(value[_HANDLE_CONFIG_INDEX])
     return get_hybrid_ep_handle_instance(resolved)
 
 
-def get_hybrid_ep_handle_instance(handle_tuple: Union[Tuple, hybrid_ep_cpp.HandleImpl]) -> hybrid_ep_cpp.HandleImpl:
+def get_hybrid_ep_handle_instance(value: Union[Tuple, hybrid_ep_cpp.HandleImpl]) -> hybrid_ep_cpp.HandleImpl:
     """Build HandleImpl from a resolved handle tuple (13 elements)."""
-    if isinstance(handle_tuple, hybrid_ep_cpp.HandleImpl):
-        return handle_tuple
-
+    if isinstance(value, hybrid_ep_cpp.HandleImpl):
+        return value
+    
     handle = hybrid_ep_cpp.HandleImpl()
-    handle.sparse_to_dense_map = handle_tuple[0]
-    handle.rdma_to_attn_map = handle_tuple[1]
-    handle.attn_to_rdma_map = handle_tuple[2]
-    handle.num_dispatched_tokens_tensor = handle_tuple[3]
-    handle.local_expert_routing_map = handle_tuple[4]
-    handle.num_of_tokens_per_rank = handle_tuple[5]
-    if isinstance(handle_tuple[6], hybrid_ep_cpp.HybridEpConfigInstance):
-        handle.config = handle_tuple[6]
+    handle.sparse_to_dense_map = value[0]
+    handle.rdma_to_attn_map = value[1]
+    handle.attn_to_rdma_map = value[2]
+    handle.num_dispatched_tokens_tensor = value[3]
+    handle.local_expert_routing_map = value[4]
+    handle.num_of_tokens_per_rank = value[5]
+    if isinstance(value[6], hybrid_ep_cpp.HybridEpConfigInstance):
+        handle.config = value[6]
     else:
-        handle.config = get_hybrid_ep_config_instance_from_tuple(handle_tuple[6])
-    handle.tokens_per_expert = handle_tuple[7]
-    handle.padded_tokens_per_expert = handle_tuple[8]
-    handle.overflow_flag = handle_tuple[9]
-    handle.num_permuted_tokens = handle_tuple[10]
-    handle.dense_chunk_layout = handle_tuple[11]
-    handle.dense_to_expert_map = handle_tuple[12]
+        handle.config = get_hybrid_ep_config_instance_from_tuple(value[6])
+    handle.tokens_per_expert = value[7]
+    handle.padded_tokens_per_expert = value[8]
+    handle.overflow_flag = value[9]
+    handle.num_permuted_tokens = value[10]
+    handle.dense_chunk_layout = value[11]
+    handle.dense_to_expert_map = value[12]
     return handle
 
 

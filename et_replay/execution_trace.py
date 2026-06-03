@@ -48,6 +48,30 @@ EXECUTION_TRACE_PROCESS_ANNOTATION = "[pytorch|profiler|execution_trace|process]
 EXECUTION_TRACE_THREAD_ANNOTATION = "[pytorch|profiler|execution_trace|thread]"
 
 
+def _split_top_level_commas(s: str) -> list[str]:
+    """Split by comma only at the top level, respecting nested [] and ()."""
+    parts: list[str] = []
+    current: list[str] = []
+    bracket_depth = 0
+    paren_depth = 0
+    for ch in s:
+        if ch == "[":
+            bracket_depth += 1
+        elif ch == "]":
+            bracket_depth -= 1
+        elif ch == "(":
+            paren_depth += 1
+        elif ch == ")":
+            paren_depth -= 1
+        elif ch == "," and bracket_depth == 0 and paren_depth == 0:
+            parts.append("".join(current).strip())
+            current = []
+            continue
+        current.append(ch)
+    parts.append("".join(current).strip())
+    return parts
+
+
 # OPERATOR: nodes actually does something
 # LABEL: nodes used as markers
 class NodeType(Enum):
@@ -295,13 +319,15 @@ class Node:
             if type.startswith("Tensor"):
                 tensors.append((type, tuple(input), shape))
             elif type.startswith("GenericList[GenericList"):
-                elem_type = type[len("GenericList[GenericList[") : -2].split(",")
+                elem_type = _split_top_level_commas(
+                    type[len("GenericList[GenericList[") : -2]
+                )
                 elem_input = input[0]
                 elem_shape = shape[0]
                 tensors.extend(self.get_tensors(zip(elem_type, elem_input, elem_shape)))
             # GenericList could have tensor elements
             elif type.startswith("GenericList"):
-                elem_type = type[len("GenericList[") : -1].split(",")
+                elem_type = _split_top_level_commas(type[len("GenericList[") : -1])
                 tensors.extend(self.get_tensors(zip(elem_type, input, shape)))
 
         return tensors
@@ -314,14 +340,16 @@ class Node:
             if type.startswith("Tensor"):
                 strides.append(tuple(stride))
             elif type.startswith("GenericList[GenericList"):
-                elem_type = type[len("GenericList[GenericList[") : -2].split(",")
+                elem_type = _split_top_level_commas(
+                    type[len("GenericList[GenericList[") : -2]
+                )
                 elem_input = input[0]
                 elem_shape = shape[0]
                 elem_stride = stride[0]
                 strides.extend(self.get_tensor_strides(zip(elem_type, elem_input, elem_shape), elem_stride))
             # GenericList could have tensor elements
             elif type.startswith("GenericList"):
-                elem_type = type[len("GenericList[") : -1].split(",")
+                elem_type = _split_top_level_commas(type[len("GenericList[") : -1])
                 strides.extend(
                     self.get_tensor_strides(zip(elem_type, input, shape), stride)
                 )
@@ -637,7 +665,7 @@ class ExecutionTrace:
             if type.startswith("genericlist"):
                 param = {"type": "genericlist"}
                 param["value"] = []
-                type_list = type[len("GenericList[") : -1].split(",")
+                type_list = _split_top_level_commas(type[len("genericlist[") : -1])
                 param_list = zip(value, type_list, shape)
                 for v, t, s in param_list:
                     param["value"].append(get_param(v, t, s))

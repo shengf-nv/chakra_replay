@@ -32,6 +32,11 @@ from torch._C._distributed_c10d import (
 from et_replay.comm.backend.base_backend import BaseBackend, collectiveArgsHolder
 import et_replay.comm.backend.nccl_allocator as nccl_allocator
 from et_replay.comm.param_profile import paramProfile
+from torch._C._distributed_c10d import (
+    AllgatherOptions,
+    AllreduceCoalescedOptions,
+    ReduceScatterOptions,
+)
 
 
 try:
@@ -205,15 +210,16 @@ class PyTorchDistBackend(BaseBackend):
                 collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair
             )
         if self.use_ext_dist:
-            raise NotImplementedError("all_reduce_coalesced is not implemented when use_ext_dist is true")
+            raise NotImplementedError(
+                "all_reduce_coalesced is not implemented when use_ext_dist is true"
+            )
         else:
-            group=self.get_collective_group(collectiveArgs)
+            group = self.get_collective_group(collectiveArgs)
             all_reduce_opts = AllreduceCoalescedOptions()
             all_reduce_opts.reduceOp = collectiveArgs.op
             all_reduce_opts.asyncOp = collectiveArgs.asyncOp
 
             retObj = group.allreduce_coalesced(quantized, all_reduce_opts)
-            
         if (id(quantized) != id(collectiveArgs.ipTensor)) and not pair:
             if collectiveArgs.asyncOp:
                 retObj = retObj.get_future().then(_dequantize)
@@ -229,7 +235,7 @@ class PyTorchDistBackend(BaseBackend):
 
         if retFlag:
             return retObj
-        
+
     def reduce(self, collectiveArgs, retFlag=False, pair=False):
         # pair=True mode does not support quantization
         if collectiveArgs.reduce_qcomm != 32 and not pair:
@@ -417,23 +423,33 @@ class PyTorchDistBackend(BaseBackend):
         if retFlag:
             return retObj
 
-    def allgather_into_tensor_coalesced(self, collectiveArgs, retFlag=False, pair=False):
+    def allgather_into_tensor_coalesced(
+        self, collectiveArgs, retFlag=False, pair=False
+    ):
         if self.use_ext_dist:
-            raise NotImplementedError("allgather_into_tensor_coalesced is not implemented when use_ext_dist is true")
+            raise NotImplementedError(
+                "allgather_into_tensor_coalesced is not implemented when use_ext_dist is true"
+            )
         else:
-            opTensor =collectiveArgs.opTensor if not pair else collectiveArgs.opTensor_pair
-            ipTensor=collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair
-            group=self.get_collective_group(collectiveArgs)
+            opTensor = (
+                collectiveArgs.opTensor if not pair else collectiveArgs.opTensor_pair
+            )
+            ipTensor = (
+                collectiveArgs.ipTensor if not pair else collectiveArgs.ipTensor_pair
+            )
+            group = self.get_collective_group(collectiveArgs)
             all_gather_opts = AllgatherOptions()
             all_gather_opts.asyncOp = collectiveArgs.asyncOp
-            retObj = group.allgather_into_tensor_coalesced(opTensor, ipTensor, all_gather_opts)
+            retObj = group.allgather_into_tensor_coalesced(
+                opTensor, ipTensor, all_gather_opts
+            )
 
         if collectiveArgs.asyncOp:
             collectiveArgs.waitObj.append(retObj)
 
         if retFlag:
             return retObj
-        
+
     def gather(self, collectiveArgs, retFlag=False, pair=False):
         if pair:
             ipTensors = collectiveArgs.ipTensor_pair
@@ -538,7 +554,9 @@ class PyTorchDistBackend(BaseBackend):
         if retFlag:
             return retObj
 
-    def reduce_scatter_tensor_coalesced(self, collectiveArgs, retFlag=False, pair=False):
+    def reduce_scatter_tensor_coalesced(
+        self, collectiveArgs, retFlag=False, pair=False
+    ):
         if pair:
             ipTensor = collectiveArgs.ipTensor_pair
             opTensor = collectiveArgs.opTensor_pair
@@ -546,7 +564,7 @@ class PyTorchDistBackend(BaseBackend):
             ipTensor = collectiveArgs.ipTensor
             opTensor = collectiveArgs.opTensor
 
-        group=self.get_collective_group(collectiveArgs)
+        group = self.get_collective_group(collectiveArgs)
         reduce_opts = ReduceScatterOptions()
         reduce_opts.reduceOp = collectiveArgs.op
         reduce_opts.asyncOp = collectiveArgs.asyncOp
@@ -557,7 +575,7 @@ class PyTorchDistBackend(BaseBackend):
 
         if retFlag:
             return retObj
-        
+
     def all_gather_base(self, collectiveArgs, retFlag=False, pair=False):
         if pair:
             ipTensor = collectiveArgs.ipTensor_pair

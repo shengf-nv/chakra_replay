@@ -215,10 +215,11 @@ def _parse_comms_op_node(  # noqa: C901
             # if no pg info provided, use total ranks as world size
             comm_args.worldSize = total_ranks
         if comm_args.comms in (
-            "all_to_all", 
-            "allgather_into_tensor_coalesced", 
-            "reduce_scatter_tensor_coalesced", 
-            "allreduce_coalesced") :
+            "all_to_all",
+            "allgather_into_tensor_coalesced",
+            "reduce_scatter_tensor_coalesced",
+            "allreduce_coalesced",
+        ):
             # flatten each tensor and store the # of elements into split field
             comm_args.inSplit = [math.prod(i) for i in node.input_shapes[0]]
             comm_args.outSplit = [math.prod(i) for i in node.output_shapes[0]]
@@ -229,7 +230,6 @@ def _parse_comms_op_node(  # noqa: C901
         comms_op_list.append(comm_args)
 
     # TODO: remove the following code after https://github.com/pytorch/pytorch/pull/169416 is landed.
-    
     # Create a set of all wait ops
     wait_ops = set()
     for comm_args in comms_op_list:
@@ -242,7 +242,7 @@ def _parse_comms_op_node(  # noqa: C901
                 is_p2p_op = False
             wait_ops.add((comm_args.pgId, seq_id, is_p2p_op))
 
-    # check if an collective is a synchronized collective or not based on 
+    # check if an collective is a synchronized collective or not based on
     # if there is a wait op for that collective
     for comm_args in comms_op_list:
         if comm_args.comms == "wait":

@@ -200,7 +200,9 @@ class BaseBackend(ABC):
     # Collectives, if you would like more detailed documentation about the behavior of these collectives,
     # visit https://pytorch.org/docs/stable/_modules/torch/distributed/distributed_c10d.html.
     @abstractmethod
-    def allgather_into_tensor_coalesced(self, collectiveArgs: collectiveArgsHolder, retFlag: bool = False):
+    def allgather_into_tensor_coalesced(
+        self, collectiveArgs: collectiveArgsHolder, retFlag: bool = False
+    ):
         pass
 
     @abstractmethod
@@ -208,7 +210,9 @@ class BaseBackend(ABC):
         pass
 
     @abstractmethod
-    def allreduce_coalesced(self, collectiveArgs: collectiveArgsHolder, retFlag: bool = False):
+    def allreduce_coalesced(
+        self, collectiveArgs: collectiveArgsHolder, retFlag: bool = False
+    ):
         pass
 
     @abstractmethod
@@ -216,7 +220,9 @@ class BaseBackend(ABC):
         pass
 
     @abstractmethod
-    def reduce_scatter_tensor_coalesced(self, collectiveArgs: collectiveArgsHolder, retFlag: bool = False):
+    def reduce_scatter_tensor_coalesced(
+        self, collectiveArgs: collectiveArgsHolder, retFlag: bool = False
+    ):
         pass
 
     @abstractmethod

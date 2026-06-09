@@ -932,7 +932,7 @@ class paramCommsBench(ABC):
         scaleFactor: float,
         allocate: bool = True,
     ) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
-        """Prepare the all_to_allv mode""" 
+        """Prepare the all_to_allv mode"""
         ipTensor = torch.Tensor()
         opTensor = torch.Tensor()
         if allocate:
@@ -949,22 +949,9 @@ class paramCommsBench(ABC):
             opTensor = self.backendFuncs.alloc_random(
                 [numElementsOut], curDevice, dtype, scaleFactor
             )
-        # recorded splits in trace is only for dim 0, but tensor in replay has been flattened.
-        # need to recalculate the splits for flattened 1D tensor
-        # corner case: one rank sends zero data out, but receives data from other ranks, and vice versa.
-        self.collectiveArgs.opTensor_split = (
-            [
-                numElementsOut // max(sum(curComm.outSplit), 1) * i
-                for i in curComm.outSplit
-            ]
-            if curComm.outSplit
-            else None
-        )
-        self.collectiveArgs.ipTensor_split = (
-            [numElementsIn // max(sum(curComm.inSplit), 1) * i for i in curComm.inSplit]
-            if curComm.inSplit
-            else None
-        )
+        self.collectiveArgs.opTensor_split = curComm.outSplit
+        self.collectiveArgs.ipTensor_split = curComm.inSplit
+
         return (ipTensor, opTensor)
 
     def _prep_all_to_all(
@@ -1106,7 +1093,6 @@ class paramCommsBench(ABC):
             ]
         return (ipTensor, opTensor)
 
-
     def _prep_reduce_scatter(
         self,
         curComm: commsArgs,
@@ -1215,7 +1201,7 @@ class paramCommsBench(ABC):
                 for i in curComm.outSplit
             ]
         return (ipTensor, opTensor)
-    
+        
     def _prep_pt2pt(
         self,
         curComm: commsArgs,
@@ -1378,7 +1364,6 @@ class paramCommsBench(ABC):
                     ipTensor = self.backendFuncs.alloc_random(
                         [numElementsIn], curDevice, dtype, scaleFactor
                     )
-            
             # in-place case for other collectives such as allreduce, reduce, broadcast
             opTensor = ipTensor
 
